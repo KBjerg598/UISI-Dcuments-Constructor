@@ -5,7 +5,7 @@
         Title="Создание поля"
         Style="{StaticResource AppWindowStyle}"
         Width="580"
-        Height="500"
+        Height="540"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner">
     <Grid Margin="18">
@@ -58,13 +58,14 @@
                                      Checked="FieldMode_Changed"
                                      Content="Создать новое поле" />
                         <TextBox x:Name="FieldNameTextBox"
-                                 Height="50"
-                                 Margin="0,12,0,0"
+                                 Height="58"
+                                 Margin="0,16,0,0"
                                  MaxLength="100"
                                  VerticalContentAlignment="Center"
                                  Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                  materialDesign:HintAssist.Hint="Название поля"
-                                 materialDesign:TextFieldAssist.HasClearButton="True" />
+                                 materialDesign:TextFieldAssist.HasClearButton="True"
+                                 TextChanged="FieldNameTextBox_TextChanged" />
                     </StackPanel>
                 </Border>
 
@@ -80,14 +81,23 @@
                                      Checked="FieldMode_Changed"
                                      Content="Повторить существующее поле" />
                         <ComboBox x:Name="ExistingFieldsComboBox"
-                                  Height="50"
-                                  Margin="0,12,0,0"
+                                  Height="58"
+                                  Margin="0,16,0,0"
                                   IsEnabled="False"
                                   DisplayMemberPath="DisplayName"
                                   Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                  materialDesign:HintAssist.Hint="Выберите поле" />
+                                  materialDesign:HintAssist.Hint="Выберите поле"
+                                  SelectionChanged="ExistingFieldsComboBox_SelectionChanged" />
                     </StackPanel>
                 </Border>
+
+                <TextBlock x:Name="ValidationText"
+                           Grid.Row="5"
+                           Margin="4,8,4,8"
+                           VerticalAlignment="Top"
+                           FontSize="11"
+                           Foreground="#D74242"
+                           TextWrapping="Wrap" />
 
                 <StackPanel Grid.Row="6"
                             HorizontalAlignment="Right"

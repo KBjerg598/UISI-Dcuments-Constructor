@@ -1,0 +1,77 @@
+<Window x:Class="UISI_Doc_Constructor.ConfirmationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Подтверждение"
+        Style="{StaticResource AppWindowStyle}"
+        Width="520"
+        Height="330"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="18">
+        <materialDesign:Card Style="{StaticResource DialogCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="18" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="54" Height="54" Background="#FFF0EE" CornerRadius="17">
+                        <materialDesign:PackIcon Width="27"
+                                                 Height="27"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#D94A45"
+                                                 Kind="DeleteOutline" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="HeadingText"
+                                   FontSize="21"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Margin="0,4,0,0"
+                                   FontSize="11"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Это действие изменит сохранённый DOCX-шаблон." />
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="2"
+                        Padding="16"
+                        VerticalAlignment="Top"
+                        Background="#FCF7F7"
+                        BorderBrush="#F3DEDE"
+                        BorderThickness="1"
+                        CornerRadius="13">
+                    <TextBlock x:Name="DescriptionText"
+                               FontSize="12"
+                               LineHeight="19"
+                               Foreground="#555668"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <StackPanel Grid.Row="3"
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal">
+                    <Button Width="108"
+                            Margin="0,0,10,0"
+                            Style="{StaticResource QuietButtonStyle}"
+                            Click="Cancel_Click"
+                            Content="Отмена" />
+                    <Button x:Name="ConfirmButton"
+                            Width="132"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Background="#D94A45"
+                            BorderBrush="#D94A45"
+                            Click="Confirm_Click" />
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+    </Grid>
+</Window>

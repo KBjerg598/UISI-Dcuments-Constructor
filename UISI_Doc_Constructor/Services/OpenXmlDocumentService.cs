@@ -32,6 +32,113 @@ public sealed class OpenXmlDocumentService
             .ToList();
     }
 
+    public int RenameField(string documentPath, string fieldTag, string displayName)
+    {
+        var normalizedName = displayName.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedName))
+        {
+            throw new ArgumentException("Введите название поля.", nameof(displayName));
+        }
+
+        using var document = WordprocessingDocument.Open(documentPath, true);
+        var renamedCount = 0;
+
+        foreach (var root in EnumerateRoots(document))
+        {
+            var matchingControls = root
+                .Descendants<SdtElement>()
+                .Where(control => string.Equals(GetTag(control), fieldTag, StringComparison.Ordinal))
+                .ToList();
+
+            foreach (var control in matchingControls)
+            {
+                var properties = control.GetFirstChild<SdtProperties>();
+                if (properties is null)
+                {
+                    properties = new SdtProperties();
+                    control.PrependChild(properties);
+                }
+
+                var alias = properties.GetFirstChild<SdtAlias>();
+                if (alias is null)
+                {
+                    properties.AppendChild(new SdtAlias { Val = normalizedName });
+                }
+                else
+                {
+                    alias.Val = normalizedName;
+                }
+
+                renamedCount++;
+            }
+
+            if (matchingControls.Count > 0)
+            {
+                root.Save();
+            }
+        }
+
+        if (renamedCount == 0)
+        {
+            throw new InvalidOperationException(
+                "Поле больше не найдено в документе. Обновите список полей и повторите попытку.");
+        }
+
+        return renamedCount;
+    }
+
+    public int RemoveField(string documentPath, string fieldTag)
+    {
+        using var document = WordprocessingDocument.Open(documentPath, true);
+        var removedCount = 0;
+
+        foreach (var root in EnumerateRoots(document))
+        {
+            var matchingControls = root
+                .Descendants<SdtElement>()
+                .Where(control => string.Equals(GetTag(control), fieldTag, StringComparison.Ordinal))
+                .OrderByDescending(control => control.Ancestors().Count())
+                .ToList();
+
+            foreach (var control in matchingControls)
+            {
+                var content = control.ChildElements.FirstOrDefault(
+                    element => string.Equals(
+                        element.LocalName,
+                        "sdtContent",
+                        StringComparison.Ordinal));
+                var parent = control.Parent;
+
+                if (content is null || parent is null)
+                {
+                    throw new InvalidDataException(
+                        "Одно из полей имеет повреждённую структуру и не может быть удалено.");
+                }
+
+                foreach (var child in content.ChildElements.ToList())
+                {
+                    parent.InsertBefore(child.CloneNode(true), control);
+                }
+
+                control.Remove();
+                removedCount++;
+            }
+
+            if (matchingControls.Count > 0)
+            {
+                root.Save();
+            }
+        }
+
+        if (removedCount == 0)
+        {
+            throw new InvalidOperationException(
+                "Поле больше не найдено в документе. Обновите список полей и повторите попытку.");
+        }
+
+        return removedCount;
+    }
+
     public int GenerateDocument(
         string templatePath,
         string destinationPath,

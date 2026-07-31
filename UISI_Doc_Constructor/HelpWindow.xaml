@@ -82,7 +82,7 @@
                                            LineHeight="18"
                                            TextWrapping="Wrap"
                                            Foreground="{StaticResource MutedTextBrush}"
-                                           Text="Выберите документ DOCX и дайте ему понятное название. Исходный файл останется без изменений." />
+                                           Text="Выберите документ DOCX или ранее экспортированный шаблон UISI и дайте ему понятное название." />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -161,7 +161,7 @@
                                            LineHeight="18"
                                            TextWrapping="Wrap"
                                            Foreground="{StaticResource MutedTextBrush}"
-                                           Text="Расположите поля в удобном порядке, заполните их и выберите место для сохранения готового DOCX." />
+                                           Text="Перетащите поля в удобный порядок, заполните их и выберите место для сохранения готового DOCX." />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -175,9 +175,11 @@
                                                  Foreground="{StaticResource SuccessBrush}"
                                                  Kind="ShieldCheckOutline" />
                         <TextBlock VerticalAlignment="Center"
+                                   MaxWidth="340"
                                    FontSize="11"
                                    Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Шаблоны хранятся локально на этом компьютере" />
+                                   TextWrapping="Wrap"
+                                   Text="Шаблоны хранятся локально; для переноса используйте экспорт" />
                     </StackPanel>
                     <Button Width="128"
                             HorizontalAlignment="Right"

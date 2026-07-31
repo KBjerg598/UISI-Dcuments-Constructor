@@ -5,11 +5,18 @@ namespace UISI_Doc_Constructor;
 
 public partial class FieldEditorWindow : Window
 {
+    private readonly HashSet<string> _existingNames;
+
     public FieldEditorWindow(IEnumerable<TemplateField> existingFields)
     {
         InitializeComponent();
-        ExistingFieldsComboBox.ItemsSource = existingFields.ToList();
-        FieldNameTextBox.Focus();
+        var fields = existingFields.ToList();
+        _existingNames = fields
+            .Select(field => field.DisplayName)
+            .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
+        ExistingFieldsComboBox.ItemsSource = fields;
+
+        Loaded += (_, _) => FieldNameTextBox.Focus();
     }
 
     public string FieldDisplayName { get; private set; } = string.Empty;
@@ -26,6 +33,25 @@ public partial class FieldEditorWindow : Window
         var useExisting = ExistingFieldRadioButton.IsChecked == true;
         FieldNameTextBox.IsEnabled = !useExisting;
         ExistingFieldsComboBox.IsEnabled = useExisting;
+        ValidationText.Text = string.Empty;
+    }
+
+    private void FieldNameTextBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (ValidationText is not null)
+        {
+            ValidationText.Text = string.Empty;
+        }
+    }
+
+    private void ExistingFieldsComboBox_SelectionChanged(
+        object sender,
+        System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (ValidationText is not null)
+        {
+            ValidationText.Text = string.Empty;
+        }
     }
 
     private void Create_Click(object sender, RoutedEventArgs e)
@@ -50,6 +76,13 @@ public partial class FieldEditorWindow : Window
                 return;
             }
 
+            if (_existingNames.Contains(displayName))
+            {
+                ShowValidationMessage(
+                    "Поле с таким названием уже существует. Выберите «Повторить существующее поле». ");
+                return;
+            }
+
             FieldDisplayName = displayName;
             ExistingFieldTag = null;
         }
@@ -64,11 +97,6 @@ public partial class FieldEditorWindow : Window
 
     private void ShowValidationMessage(string message)
     {
-        MessageBox.Show(
-            this,
-            message,
-            "Создание поля",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        ValidationText.Text = message.TrimEnd();
     }
 }

@@ -538,10 +538,24 @@
                                                                 Style="{StaticResource QuietButtonStyle}"
                                                                 Tag="{Binding}"
                                                                 ToolTip="Переименовать шаблон"
+                                                                AutomationProperties.Name="Переименовать шаблон"
                                                                 Click="RenameTemplateFromCard_Click">
                                                             <materialDesign:PackIcon Width="18"
                                                                                      Height="18"
                                                                                      Kind="PencilOutline" />
+                                                        </Button>
+                                                        <Button Width="38"
+                                                                Height="38"
+                                                                Margin="0,0,8,0"
+                                                                Padding="0"
+                                                                Style="{StaticResource QuietButtonStyle}"
+                                                                Tag="{Binding}"
+                                                                ToolTip="Экспортировать шаблон"
+                                                                AutomationProperties.Name="Экспортировать шаблон"
+                                                                Click="ExportTemplateFromCard_Click">
+                                                            <materialDesign:PackIcon Width="18"
+                                                                                     Height="18"
+                                                                                     Kind="ExportVariant" />
                                                         </Button>
                                                         <Button Height="38"
                                                                 Margin="0,0,8,0"
@@ -668,19 +682,34 @@
                                                                TextTrimming="CharacterEllipsis"
                                                                ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
                                                 </StackPanel>
-                                                <Button Grid.Column="2"
-                                                        Width="36"
-                                                        Height="36"
-                                                        Margin="10,0,0,0"
-                                                        Padding="0"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource QuietButtonStyle}"
-                                                        ToolTip="Переименовать шаблон"
-                                                        Click="RenameCurrentTemplate_Click">
-                                                    <materialDesign:PackIcon Width="18"
-                                                                             Height="18"
-                                                                             Kind="PencilOutline" />
-                                                </Button>
+                                                <StackPanel Grid.Column="2"
+                                                            Margin="10,0,0,0"
+                                                            VerticalAlignment="Center"
+                                                            Orientation="Horizontal">
+                                                    <Button Width="36"
+                                                            Height="36"
+                                                            Margin="0,0,3,0"
+                                                            Padding="0"
+                                                            Style="{StaticResource QuietButtonStyle}"
+                                                            ToolTip="Экспортировать шаблон"
+                                                            AutomationProperties.Name="Экспортировать шаблон"
+                                                            Click="ExportCurrentTemplate_Click">
+                                                        <materialDesign:PackIcon Width="18"
+                                                                                 Height="18"
+                                                                                 Kind="ExportVariant" />
+                                                    </Button>
+                                                    <Button Width="36"
+                                                            Height="36"
+                                                            Padding="0"
+                                                            Style="{StaticResource QuietButtonStyle}"
+                                                            ToolTip="Переименовать шаблон"
+                                                            AutomationProperties.Name="Переименовать шаблон"
+                                                            Click="RenameCurrentTemplate_Click">
+                                                        <materialDesign:PackIcon Width="18"
+                                                                                 Height="18"
+                                                                                 Kind="PencilOutline" />
+                                                    </Button>
+                                                </StackPanel>
                                             </Grid>
                                         </Border>
 
@@ -755,10 +784,10 @@
                                         <Grid Grid.Row="3">
                                             <Grid.RowDefinitions>
                                                 <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="*" />
                                                 <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
-                                            <Grid Margin="0,0,0,8">
+                                            <Grid Margin="0,0,0,3">
                                                 <TextBlock FontSize="12"
                                                            FontWeight="SemiBold"
                                                            Text="Поля документа" />
@@ -769,70 +798,96 @@
                                                            Text="Поля пока не созданы" />
                                             </Grid>
 
+                                            <TextBlock Grid.Row="1"
+                                                       Margin="0,0,0,7"
+                                                       FontSize="10"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       Text="Перетаскивайте поля за маркер, чтобы менять порядок"
+                                                       TextTrimming="CharacterEllipsis" />
+
                                             <ListBox x:Name="FieldsList"
-                                                     Grid.Row="1"
-                                                     MinHeight="84"
-                                                     MaxHeight="150"
-                                                     Margin="0,0,0,8"
+                                                     Grid.Row="2"
+                                                     MinHeight="126"
+                                                     MaxHeight="300"
                                                      Padding="4"
                                                      Background="#FAFAFD"
                                                      BorderBrush="{StaticResource BorderBrush}"
                                                      BorderThickness="1"
+                                                     AllowDrop="True"
+                                                     ItemContainerStyle="{StaticResource FieldListItemStyle}"
                                                      SelectionChanged="FieldsList_SelectionChanged"
+                                                     PreviewMouseLeftButtonDown="FieldsList_PreviewMouseLeftButtonDown"
+                                                     PreviewMouseMove="FieldsList_PreviewMouseMove"
+                                                     PreviewKeyDown="FieldsList_PreviewKeyDown"
+                                                     DragOver="FieldsList_DragOver"
+                                                     DragLeave="FieldsList_DragLeave"
+                                                     Drop="FieldsList_Drop"
+                                                     MouseDoubleClick="FieldsList_MouseDoubleClick"
                                                      HorizontalContentAlignment="Stretch"
                                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                                 <ListBox.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid Margin="7,6">
+                                                        <Grid Height="38">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto" />
                                                                 <ColumnDefinition Width="*" />
                                                                 <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
-                                                            <Border Width="26" Height="26" Background="#EEEBFF" CornerRadius="8">
-                                                                <materialDesign:PackIcon Width="15"
-                                                                                         Height="15"
-                                                                                         HorizontalAlignment="Center"
-                                                                                         VerticalAlignment="Center"
-                                                                                         Foreground="#6559E8"
+                                                            <TextBlock Width="18"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="15"
+                                                                       FontWeight="Bold"
+                                                                       Foreground="#A09CB8"
+                                                                       Cursor="SizeNS"
+                                                                       Text="⋮⋮"
+                                                                       ToolTip="Перетащить поле"
+                                                                       AutomationProperties.Name="Маркер перемещения поля" />
+                                                            <StackPanel Grid.Column="1"
+                                                                        Margin="7,0,8,0"
+                                                                        VerticalAlignment="Center">
+                                                                <TextBlock FontSize="11"
+                                                                           FontWeight="SemiBold"
+                                                                           Text="{Binding DisplayName}"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           ToolTip="{Binding DisplayName}" />
+                                                                <TextBlock Margin="0,1,0,0"
+                                                                           FontSize="9"
+                                                                           Foreground="{StaticResource MutedTextBrush}"
+                                                                           Text="{Binding OccurrencesText}" />
+                                                            </StackPanel>
+                                                            <Button Grid.Column="2"
+                                                                    Width="30"
+                                                                    Height="30"
+                                                                    Margin="0,0,2,0"
+                                                                    Padding="0"
+                                                                    Style="{StaticResource QuietButtonStyle}"
+                                                                    Tag="{Binding}"
+                                                                    ToolTip="Переименовать поле"
+                                                                    AutomationProperties.Name="Переименовать поле"
+                                                                    Click="RenameField_Click">
+                                                                <materialDesign:PackIcon Width="16"
+                                                                                         Height="16"
                                                                                          Kind="PencilOutline" />
-                                                            </Border>
-                                                            <TextBlock Grid.Column="1"
-                                                                       Margin="9,0,8,0"
-                                                                       VerticalAlignment="Center"
-                                                                       FontSize="11"
-                                                                       FontWeight="SemiBold"
-                                                                       Text="{Binding DisplayName}"
-                                                                       TextTrimming="CharacterEllipsis" />
-                                                            <TextBlock Grid.Column="2"
-                                                                       VerticalAlignment="Center"
-                                                                       FontSize="10"
-                                                                       Foreground="{StaticResource MutedTextBrush}"
-                                                                       Text="{Binding OccurrencesText}" />
+                                                            </Button>
+                                                            <Button Grid.Column="3"
+                                                                    Width="30"
+                                                                    Height="30"
+                                                                    Padding="0"
+                                                                    Style="{StaticResource QuietButtonStyle}"
+                                                                    Foreground="#C64A4A"
+                                                                    Tag="{Binding}"
+                                                                    ToolTip="Удалить поле"
+                                                                    AutomationProperties.Name="Удалить поле"
+                                                                    Click="DeleteField_Click">
+                                                                <materialDesign:PackIcon Width="16"
+                                                                                         Height="16"
+                                                                                         Kind="DeleteOutline" />
+                                                            </Button>
                                                         </Grid>
                                                     </DataTemplate>
                                                 </ListBox.ItemTemplate>
                                             </ListBox>
-
-                                            <StackPanel Grid.Row="2"
-                                                        HorizontalAlignment="Right"
-                                                        Orientation="Horizontal">
-                                                <Button x:Name="MoveFieldUpButton"
-                                                        Width="88"
-                                                        Height="34"
-                                                        Margin="0,0,7,0"
-                                                        Style="{StaticResource QuietButtonStyle}"
-                                                        IsEnabled="False"
-                                                        Click="MoveFieldUp_Click"
-                                                        Content="↑ Выше" />
-                                                <Button x:Name="MoveFieldDownButton"
-                                                        Width="88"
-                                                        Height="34"
-                                                        Style="{StaticResource QuietButtonStyle}"
-                                                        IsEnabled="False"
-                                                        Click="MoveFieldDown_Click"
-                                                        Content="↓ Ниже" />
-                                            </StackPanel>
                                         </Grid>
 
                                         <Button x:Name="FillDocumentButton"

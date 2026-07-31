@@ -1,4 +1,5 @@
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using UISI_Doc_Constructor.Models;
@@ -7,8 +8,15 @@ namespace UISI_Doc_Constructor.Services;
 
 public sealed class TemplateStorageService
 {
+    public const string PackageExtension = ".uisi-template";
+
+    private const int CurrentPackageVersion = 1;
+    private const long MaximumManifestSize = 1024 * 1024;
+    private const long MaximumDocumentSize = 250L * 1024 * 1024;
+
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
+        PropertyNameCaseInsensitive = true,
         WriteIndented = true
     };
 
@@ -46,7 +54,14 @@ public sealed class TemplateStorageService
 
     public DocumentTemplate Import(string sourcePath, string templateName)
     {
-        ValidateSourceDocument(sourcePath);
+        using var package = IsTemplatePackage(sourcePath)
+            ? ReadPackage(sourcePath)
+            : null;
+
+        if (package is null)
+        {
+            ValidateSourceDocument(sourcePath);
+        }
 
         var normalizedName = NormalizeTemplateName(templateName);
         if (_templates.Any(template => string.Equals(
@@ -64,14 +79,34 @@ public sealed class TemplateStorageService
             Name = normalizedName,
             FileName = $"{Guid.NewGuid():N}.docx",
             CreatedAtUtc = DateTime.UtcNow,
-            UpdatedAtUtc = DateTime.UtcNow
+            UpdatedAtUtc = DateTime.UtcNow,
+            FieldOrder = package?.Manifest.FieldOrder
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .Distinct(StringComparer.Ordinal)
+                .Take(5000)
+                .ToList()
+                ?? []
         };
 
         var destinationPath = GetTemplatePath(template);
-        File.Copy(sourcePath, destinationPath, overwrite: false);
-
         try
         {
+            if (package is null)
+            {
+                File.Copy(sourcePath, destinationPath, overwrite: false);
+            }
+            else
+            {
+                using var packageStream = package.DocumentEntry.Open();
+                using var destinationStream = new FileStream(
+                    destinationPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None);
+                packageStream.CopyTo(destinationStream);
+            }
+
+            ValidateDocxContents(destinationPath);
             _templates.Add(template);
             SaveCatalog();
             return template;
@@ -79,8 +114,98 @@ public sealed class TemplateStorageService
         catch
         {
             _templates.Remove(template);
-            File.Delete(destinationPath);
+            if (File.Exists(destinationPath))
+            {
+                File.Delete(destinationPath);
+            }
+
             throw;
+        }
+    }
+
+    public string GetSuggestedTemplateName(string sourcePath)
+    {
+        if (!IsTemplatePackage(sourcePath))
+        {
+            ValidateSourceDocument(sourcePath);
+            return Path.GetFileNameWithoutExtension(sourcePath);
+        }
+
+        using var package = ReadPackage(sourcePath);
+        return NormalizeTemplateName(package.Manifest.Name);
+    }
+
+    public void Export(Guid templateId, string destinationPath)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Выбранный шаблон отсутствует в каталоге.");
+        var sourcePath = GetTemplatePath(template);
+
+        if (!File.Exists(sourcePath))
+        {
+            throw new FileNotFoundException("Файл выбранного шаблона не найден.", sourcePath);
+        }
+
+        var fullDestinationPath = Path.GetFullPath(destinationPath);
+        if (!string.Equals(
+                Path.GetExtension(fullDestinationPath),
+                PackageExtension,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            fullDestinationPath += PackageExtension;
+        }
+
+        var destinationDirectory = Path.GetDirectoryName(fullDestinationPath)
+            ?? throw new InvalidOperationException("Не удалось определить папку экспорта.");
+        if (!Directory.Exists(destinationDirectory))
+        {
+            throw new DirectoryNotFoundException("Выбранная папка экспорта не найдена.");
+        }
+
+        var temporaryPath = Path.Combine(
+            destinationDirectory,
+            $".{Path.GetFileName(fullDestinationPath)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            using (var fileStream = new FileStream(
+                       temporaryPath,
+                       FileMode.CreateNew,
+                       FileAccess.ReadWrite,
+                       FileShare.None))
+            using (var archive = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
+            {
+                var manifest = new TemplatePackageManifest
+                {
+                    FormatVersion = CurrentPackageVersion,
+                    Name = template.Name,
+                    FieldOrder = template.FieldOrder.ToList()
+                };
+
+                var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal);
+                using (var manifestStream = manifestEntry.Open())
+                {
+                    JsonSerializer.Serialize(manifestStream, manifest, _jsonOptions);
+                }
+
+                var documentEntry = archive.CreateEntry("template.docx", CompressionLevel.Optimal);
+                using var documentStream = documentEntry.Open();
+                using var sourceStream = new FileStream(
+                    sourcePath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.ReadWrite);
+                sourceStream.CopyTo(documentStream);
+            }
+
+            File.Move(temporaryPath, fullDestinationPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
         }
     }
 
@@ -293,6 +418,114 @@ public sealed class TemplateStorageService
             throw new InvalidOperationException(
                 "На первом этапе поддерживаются только документы DOCX.");
         }
+
+        ValidateDocxContents(sourcePath);
+    }
+
+    private static void ValidateDocxContents(string documentPath)
+    {
+        try
+        {
+            using var archive = ZipFile.OpenRead(documentPath);
+            var hasContentTypes = archive.Entries.Any(entry => string.Equals(
+                entry.FullName,
+                "[Content_Types].xml",
+                StringComparison.OrdinalIgnoreCase));
+            var hasMainDocument = archive.Entries.Any(entry => string.Equals(
+                entry.FullName,
+                "word/document.xml",
+                StringComparison.OrdinalIgnoreCase));
+
+            if (!hasContentTypes || !hasMainDocument)
+            {
+                throw new InvalidDataException(
+                    "Выбранный файл не содержит корректный документ Word DOCX.");
+            }
+        }
+        catch (InvalidDataException exception)
+        {
+            throw new InvalidDataException(
+                "Выбранный документ DOCX повреждён или имеет неподдерживаемый формат.",
+                exception);
+        }
+    }
+
+    private static bool IsTemplatePackage(string sourcePath) =>
+        string.Equals(
+            Path.GetExtension(sourcePath),
+            PackageExtension,
+            StringComparison.OrdinalIgnoreCase);
+
+    private PackageArchive ReadPackage(string sourcePath)
+    {
+        if (!File.Exists(sourcePath))
+        {
+            throw new FileNotFoundException("Выбранный файл шаблона не найден.", sourcePath);
+        }
+
+        ZipArchive? archive = null;
+        try
+        {
+            archive = ZipFile.OpenRead(sourcePath);
+            var manifestEntry = FindSinglePackageEntry(archive, "manifest.json");
+            var documentEntry = FindSinglePackageEntry(archive, "template.docx");
+
+            if (manifestEntry.Length is <= 0 or > MaximumManifestSize)
+            {
+                throw new InvalidDataException("Файл описания шаблона имеет недопустимый размер.");
+            }
+
+            if (documentEntry.Length is <= 0 or > MaximumDocumentSize)
+            {
+                throw new InvalidDataException("Документ в шаблоне имеет недопустимый размер.");
+            }
+
+            TemplatePackageManifest? manifest;
+            using (var manifestStream = manifestEntry.Open())
+            {
+                manifest = JsonSerializer.Deserialize<TemplatePackageManifest>(
+                    manifestStream,
+                    _jsonOptions);
+            }
+
+            if (manifest is null ||
+                manifest.FormatVersion != CurrentPackageVersion ||
+                string.IsNullOrWhiteSpace(manifest.Name))
+            {
+                throw new InvalidDataException(
+                    "Этот файл не является поддерживаемым шаблоном UISI или создан более новой версией программы.");
+            }
+
+            manifest.FieldOrder ??= [];
+            return new PackageArchive(archive, manifest, documentEntry);
+        }
+        catch (InvalidDataException)
+        {
+            archive?.Dispose();
+            throw;
+        }
+        catch (JsonException exception)
+        {
+            archive?.Dispose();
+            throw new InvalidDataException("Описание шаблона UISI повреждено.", exception);
+        }
+        catch
+        {
+            archive?.Dispose();
+            throw;
+        }
+    }
+
+    private static ZipArchiveEntry FindSinglePackageEntry(ZipArchive archive, string name)
+    {
+        var matches = archive.Entries
+            .Where(entry => string.Equals(entry.FullName, name, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return matches.Count == 1
+            ? matches[0]
+            : throw new InvalidDataException(
+                $"В файле шаблона отсутствует обязательная часть «{name}».");
     }
 
     private static string NormalizeTemplateName(string templateName)
@@ -306,5 +539,26 @@ public sealed class TemplateStorageService
         return normalizedName.Length <= 100
             ? normalizedName
             : normalizedName[..100];
+    }
+
+    private sealed class TemplatePackageManifest
+    {
+        public int FormatVersion { get; set; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public List<string> FieldOrder { get; set; } = [];
+    }
+
+    private sealed class PackageArchive(
+        ZipArchive archive,
+        TemplatePackageManifest manifest,
+        ZipArchiveEntry documentEntry) : IDisposable
+    {
+        public TemplatePackageManifest Manifest { get; } = manifest;
+
+        public ZipArchiveEntry DocumentEntry { get; } = documentEntry;
+
+        public void Dispose() => archive.Dispose();
     }
 }
