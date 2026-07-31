@@ -30,6 +30,7 @@ public sealed class TemplateStorageService
                 "UISI Doc Constructor")
             : Path.GetFullPath(rootPath);
         TemplatesPath = Path.Combine(RootPath, "Templates");
+        DeletedTemplatesPath = Path.Combine(RootPath, "Deleted Templates");
         CatalogPath = Path.Combine(RootPath, "templates.json");
 
         Directory.CreateDirectory(TemplatesPath);
@@ -44,6 +45,8 @@ public sealed class TemplateStorageService
     public string RootPath { get; }
 
     public string TemplatesPath { get; }
+
+    public string DeletedTemplatesPath { get; }
 
     public string CatalogPath { get; }
 
@@ -237,6 +240,42 @@ public sealed class TemplateStorageService
         return template;
     }
 
+    public DocumentTemplate Delete(Guid templateId)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Выбранный шаблон отсутствует в каталоге.");
+        var sourcePath = GetTemplatePath(template);
+        string? deletedPath = null;
+
+        if (File.Exists(sourcePath))
+        {
+            Directory.CreateDirectory(DeletedTemplatesPath);
+            deletedPath = Path.Combine(
+                DeletedTemplatesPath,
+                CreateDeletedTemplateFileName(template));
+            File.Move(sourcePath, deletedPath, overwrite: false);
+        }
+
+        _templates.Remove(template);
+
+        try
+        {
+            SaveCatalog();
+            return template;
+        }
+        catch
+        {
+            _templates.Add(template);
+
+            if (deletedPath is not null && File.Exists(deletedPath) && !File.Exists(sourcePath))
+            {
+                File.Move(deletedPath, sourcePath, overwrite: false);
+            }
+
+            throw;
+        }
+    }
+
     public string GetTemplatePath(DocumentTemplate template)
     {
         ArgumentNullException.ThrowIfNull(template);
@@ -359,6 +398,28 @@ public sealed class TemplateStorageService
         }
 
         return candidate;
+    }
+
+    private static string CreateDeletedTemplateFileName(DocumentTemplate template)
+    {
+        var invalidCharacters = Path.GetInvalidFileNameChars().ToHashSet();
+        var safeName = new string(template.Name
+            .Select(character => invalidCharacters.Contains(character) ? '_' : character)
+            .ToArray())
+            .Trim()
+            .TrimEnd('.');
+
+        if (string.IsNullOrWhiteSpace(safeName))
+        {
+            safeName = "template";
+        }
+
+        if (safeName.Length > 60)
+        {
+            safeName = safeName[..60].TrimEnd();
+        }
+
+        return $"{DateTime.UtcNow:yyyyMMdd-HHmmssfff}-{safeName}-{template.Id:N}.docx";
     }
 
     private static string RemoveLegacyUniqueSuffix(string fileNameWithoutExtension)

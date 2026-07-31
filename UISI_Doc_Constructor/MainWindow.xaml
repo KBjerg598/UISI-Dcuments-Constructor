@@ -484,11 +484,16 @@
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
                                                         <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
                                                     </Grid.ColumnDefinitions>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
 
                                                     <Border Width="48"
                                                             Height="48"
+                                                            Grid.RowSpan="2"
+                                                            VerticalAlignment="Top"
                                                             Background="#ECE9FF"
                                                             CornerRadius="14">
                                                         <materialDesign:PackIcon Width="24"
@@ -500,12 +505,13 @@
                                                     </Border>
 
                                                     <StackPanel Grid.Column="1"
-                                                                Margin="14,1,18,0"
+                                                                Margin="14,1,0,0"
                                                                 VerticalAlignment="Center">
                                                         <TextBlock FontSize="14"
                                                                    FontWeight="SemiBold"
                                                                    Text="{Binding Name}"
-                                                                   TextTrimming="CharacterEllipsis" />
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   ToolTip="{Binding Name}" />
                                                         <Grid Margin="0,5,0,0">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto" />
@@ -528,7 +534,10 @@
                                                         </Grid>
                                                     </StackPanel>
 
-                                                    <StackPanel Grid.Column="2"
+                                                    <StackPanel Grid.Row="1"
+                                                                Grid.Column="1"
+                                                                Margin="14,10,0,0"
+                                                                HorizontalAlignment="Right"
                                                                 VerticalAlignment="Center"
                                                                 Orientation="Horizontal">
                                                         <Button Width="38"
@@ -556,6 +565,20 @@
                                                             <materialDesign:PackIcon Width="18"
                                                                                      Height="18"
                                                                                      Kind="ExportVariant" />
+                                                        </Button>
+                                                        <Button Width="38"
+                                                                Height="38"
+                                                                Margin="0,0,8,0"
+                                                                Padding="0"
+                                                                Style="{StaticResource QuietButtonStyle}"
+                                                                Foreground="#C64A4A"
+                                                                Tag="{Binding}"
+                                                                ToolTip="Удалить шаблон"
+                                                                AutomationProperties.Name="Удалить шаблон"
+                                                                Click="DeleteTemplateFromCard_Click">
+                                                            <materialDesign:PackIcon Width="18"
+                                                                                     Height="18"
+                                                                                     Kind="DeleteOutline" />
                                                         </Button>
                                                         <Button Height="38"
                                                                 Margin="0,0,8,0"
@@ -660,9 +683,17 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <Border Width="44" Height="44" Background="#6658EB" CornerRadius="14">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+                                                <Border Width="44"
+                                                        Height="44"
+                                                        Grid.RowSpan="2"
+                                                        VerticalAlignment="Top"
+                                                        Background="#6658EB"
+                                                        CornerRadius="14">
                                                     <materialDesign:PackIcon Width="23"
                                                                              Height="23"
                                                                              HorizontalAlignment="Center"
@@ -682,8 +713,10 @@
                                                                TextTrimming="CharacterEllipsis"
                                                                ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="2"
-                                                            Margin="10,0,0,0"
+                                                <StackPanel Grid.Row="1"
+                                                            Grid.Column="1"
+                                                            Margin="12,7,0,0"
+                                                            HorizontalAlignment="Right"
                                                             VerticalAlignment="Center"
                                                             Orientation="Horizontal">
                                                     <Button Width="36"
@@ -700,6 +733,7 @@
                                                     </Button>
                                                     <Button Width="36"
                                                             Height="36"
+                                                            Margin="0,0,3,0"
                                                             Padding="0"
                                                             Style="{StaticResource QuietButtonStyle}"
                                                             ToolTip="Переименовать шаблон"
@@ -708,6 +742,18 @@
                                                         <materialDesign:PackIcon Width="18"
                                                                                  Height="18"
                                                                                  Kind="PencilOutline" />
+                                                    </Button>
+                                                    <Button Width="36"
+                                                            Height="36"
+                                                            Padding="0"
+                                                            Style="{StaticResource QuietButtonStyle}"
+                                                            Foreground="#C64A4A"
+                                                            ToolTip="Удалить шаблон"
+                                                            AutomationProperties.Name="Удалить шаблон"
+                                                            Click="DeleteCurrentTemplate_Click">
+                                                        <materialDesign:PackIcon Width="18"
+                                                                                 Height="18"
+                                                                                 Kind="DeleteOutline" />
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>

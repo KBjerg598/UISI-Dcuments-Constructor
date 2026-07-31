@@ -108,11 +108,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private void DeleteTemplateFromCard_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DocumentTemplate template })
+        {
+            DeleteTemplate(template);
+        }
+    }
+
     private void ExportCurrentTemplate_Click(object sender, RoutedEventArgs e)
     {
         if (_currentTemplate is not null)
         {
             ExportTemplate(_currentTemplate);
+        }
+    }
+
+    private void DeleteCurrentTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentTemplate is not null)
+        {
+            DeleteTemplate(_currentTemplate);
         }
     }
 
@@ -542,6 +558,39 @@ public partial class MainWindow : Window
 
             _storageService.Export(template.Id, saveDialog.FileName);
             SetStatus($"Шаблон «{template.Name}» экспортирован: {saveDialog.FileName}");
+        });
+    }
+
+    private void DeleteTemplate(DocumentTemplate template)
+    {
+        SetActiveNavigation(TemplatesNavButton);
+
+        var confirmationWindow = new ConfirmationWindow(
+            "Удалить шаблон?",
+            $"Шаблон «{template.Name}» исчезнет из библиотеки программы. " +
+            "Готовые документы, ранее созданные по этому шаблону, не изменятся.",
+            "Удалить")
+        {
+            Owner = this
+        };
+
+        if (confirmationWindow.ShowDialog() != true)
+        {
+            return;
+        }
+
+        RunSafely(() =>
+        {
+            var deletedCurrentTemplate = _currentTemplate?.Id == template.Id;
+            if (deletedCurrentTemplate)
+            {
+                _wordEditorService.CloseDocument(saveChanges: true);
+            }
+
+            var deletedTemplate = _storageService.Delete(template.Id);
+            TemplateSearchBox.Clear();
+            ReloadTemplateCatalog(deletedCurrentTemplate ? null : _currentTemplate?.Id);
+            SetStatus($"Шаблон «{deletedTemplate.Name}» удалён из библиотеки.");
         });
     }
 
