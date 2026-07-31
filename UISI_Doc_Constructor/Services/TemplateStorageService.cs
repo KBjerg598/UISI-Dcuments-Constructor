@@ -84,6 +84,34 @@ public sealed class TemplateStorageService
         }
     }
 
+    public DocumentTemplate Rename(Guid templateId, string templateName)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Выбранный шаблон отсутствует в каталоге.");
+        var normalizedName = NormalizeTemplateName(templateName);
+
+        if (_templates.Any(item =>
+                item.Id != templateId &&
+                string.Equals(
+                    item.Name,
+                    normalizedName,
+                    StringComparison.CurrentCultureIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                $"Шаблон с названием «{normalizedName}» уже существует. Укажите другое название.");
+        }
+
+        if (string.Equals(template.Name, normalizedName, StringComparison.CurrentCulture))
+        {
+            return template;
+        }
+
+        template.Name = normalizedName;
+        template.UpdatedAtUtc = DateTime.UtcNow;
+        SaveCatalog();
+        return template;
+    }
+
     public string GetTemplatePath(DocumentTemplate template)
     {
         ArgumentNullException.ThrowIfNull(template);

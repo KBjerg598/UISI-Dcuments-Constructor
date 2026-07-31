@@ -1,0 +1,191 @@
+<Window x:Class="UISI_Doc_Constructor.HelpWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Как создать документ"
+        Style="{StaticResource AppWindowStyle}"
+        Width="650"
+        Height="620"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="18">
+        <materialDesign:Card Style="{StaticResource DialogCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="22" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="18" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="58"
+                            Height="58"
+                            Background="#ECE9FF"
+                            CornerRadius="18">
+                        <materialDesign:PackIcon Width="29"
+                                                 Height="29"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#6559E8"
+                                                 Kind="LightbulbOnOutline" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="23"
+                                   FontWeight="SemiBold"
+                                   Text="Первый документ — за три шага" />
+                        <TextBlock Margin="0,4,0,0"
+                                   FontSize="12"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Подготовьте шаблон один раз и используйте его снова." />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Grid.Row="2">
+                    <Border Margin="0,0,0,12"
+                            Padding="16"
+                            Background="#F8F7FF"
+                            BorderBrush="#E6E2FF"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" Background="#6559E8" CornerRadius="13">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           Text="1" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Width="19"
+                                                             Height="19"
+                                                             Margin="0,0,8,0"
+                                                             Foreground="#6559E8"
+                                                             Kind="FilePlusOutline" />
+                                    <TextBlock FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Text="Импортируйте шаблон" />
+                                </StackPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="12"
+                                           LineHeight="18"
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Text="Выберите документ DOCX и дайте ему понятное название. Исходный файл останется без изменений." />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Margin="0,0,0,12"
+                            Padding="16"
+                            Background="#FCFCFE"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" Background="#E4F8F1" CornerRadius="13">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="#0A946B"
+                                           Text="2" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Width="19"
+                                                             Height="19"
+                                                             Margin="0,0,8,0"
+                                                             Foreground="#0DAA7A"
+                                                             Kind="PencilOutline" />
+                                    <TextBlock FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Text="Добавьте поля в Word" />
+                                </StackPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="12"
+                                           LineHeight="18"
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Text="Откройте шаблон, выделите пример текста и создайте поле. Одно поле можно повторять в нескольких местах." />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Padding="16"
+                            Background="#FFF9F3"
+                            BorderBrush="#FBE4CF"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" Background="#FFF0E4" CornerRadius="13">
+                                <TextBlock HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="#E97D1F"
+                                           Text="3" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Width="19"
+                                                             Height="19"
+                                                             Margin="0,0,8,0"
+                                                             Foreground="#F18A2A"
+                                                             Kind="CheckCircleOutline" />
+                                    <TextBlock FontSize="14"
+                                               FontWeight="SemiBold"
+                                               Text="Сформируйте документ" />
+                                </StackPanel>
+                                <TextBlock Margin="0,6,0,0"
+                                           FontSize="12"
+                                           LineHeight="18"
+                                           TextWrapping="Wrap"
+                                           Foreground="{StaticResource MutedTextBrush}"
+                                           Text="Расположите поля в удобном порядке, заполните их и выберите место для сохранения готового DOCX." />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <Grid Grid.Row="4">
+                    <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                        <materialDesign:PackIcon Width="18"
+                                                 Height="18"
+                                                 Margin="0,0,8,0"
+                                                 Foreground="{StaticResource SuccessBrush}"
+                                                 Kind="ShieldCheckOutline" />
+                        <TextBlock VerticalAlignment="Center"
+                                   FontSize="11"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Шаблоны хранятся локально на этом компьютере" />
+                    </StackPanel>
+                    <Button Width="128"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="Close_Click"
+                            Content="Понятно" />
+                </Grid>
+            </Grid>
+        </materialDesign:Card>
+    </Grid>
+</Window>

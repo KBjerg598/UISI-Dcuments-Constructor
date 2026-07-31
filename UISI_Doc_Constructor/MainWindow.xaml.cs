@@ -32,11 +32,14 @@ public partial class MainWindow : Window
         templatesView.Filter = TemplateMatchesSearch;
 
         SetGreeting();
+        SetActiveNavigation(OverviewNavButton);
         ReloadTemplateCatalog();
     }
 
     private void ImportTemplate_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(ImportNavButton);
+
         var fileDialog = new OpenFileDialog
         {
             Title = "Выберите документ Word",
@@ -86,6 +89,7 @@ public partial class MainWindow : Window
 
         RunSafely(() =>
         {
+            SetActiveNavigation(TemplatesNavButton);
             _wordEditorService.CloseDocument(saveChanges: true);
             SetCurrentTemplate(template);
             SetStatus($"Шаблон «{template.Name}» выбран для работы.");
@@ -101,6 +105,7 @@ public partial class MainWindow : Window
 
         RunSafely(() =>
         {
+            SetActiveNavigation(FillNavButton);
             _wordEditorService.CloseDocument(saveChanges: true);
             SetCurrentTemplate(template);
         });
@@ -123,6 +128,22 @@ public partial class MainWindow : Window
             _wordEditorService.OpenDocument(templatePath);
             SetStatus("Шаблон открыт в Word. Выделите текст и нажмите «Создать поле».");
         });
+    }
+
+    private void RenameTemplateFromCard_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: DocumentTemplate template })
+        {
+            RenameTemplate(template);
+        }
+    }
+
+    private void RenameCurrentTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentTemplate is not null)
+        {
+            RenameTemplate(_currentTemplate);
+        }
     }
 
     private void CreateField_Click(object sender, RoutedEventArgs e)
@@ -199,6 +220,7 @@ public partial class MainWindow : Window
 
         RunSafely(() =>
         {
+            SetActiveNavigation(TemplatesNavButton);
             _wordEditorService.CloseDocument(saveChanges: true);
             SetCurrentTemplate(template);
             SetStatus($"Шаблон «{template.Name}» выбран для работы.");
@@ -207,6 +229,8 @@ public partial class MainWindow : Window
 
     private void FillDocument_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(FillNavButton);
+
         if (!TryGetCurrentTemplate(out var templatePath))
         {
             return;
@@ -240,26 +264,76 @@ public partial class MainWindow : Window
 
     private void OverviewNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(OverviewNavButton);
         DashboardScrollViewer.ScrollToTop();
     }
 
     private void TemplatesNav_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(TemplatesNavButton);
         WorkspaceGrid.BringIntoView();
         TemplateSearchBox.Focus();
     }
 
     private void ShowHelp_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show(
-            this,
-            "1. Импортируйте документ DOCX и дайте шаблону понятное название.\n\n" +
-            "2. Откройте шаблон в Word, выделите текст и создайте из него поле. " +
-            "Одно поле можно повторять в нескольких местах документа.\n\n" +
-            "3. Расположите поля в удобном порядке и нажмите «Заполнить документ».",
-            "Как создать документ",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        var helpWindow = new HelpWindow
+        {
+            Owner = this
+        };
+
+        helpWindow.ShowDialog();
+    }
+
+    private void RenameTemplate(DocumentTemplate template)
+    {
+        SetActiveNavigation(TemplatesNavButton);
+
+        var nameDialog = new TemplateNameWindow(
+            template.Name,
+            _templates
+                .Where(item => item.Id != template.Id)
+                .Select(item => item.Name),
+            isRename: true)
+        {
+            Owner = this
+        };
+
+        if (nameDialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        RunSafely(() =>
+        {
+            var previousName = template.Name;
+            var renamedTemplate = _storageService.Rename(
+                template.Id,
+                nameDialog.TemplateName);
+
+            TemplateSearchBox.Clear();
+            ReloadTemplateCatalog(renamedTemplate.Id);
+            SetStatus($"Шаблон «{previousName}» переименован в «{renamedTemplate.Name}».");
+        });
+    }
+
+    private void SetActiveNavigation(Button activeButton)
+    {
+        var regularStyle = (Style)FindResource("NavButtonStyle");
+        var selectedStyle = (Style)FindResource("SelectedNavButtonStyle");
+
+        foreach (var button in new[]
+                 {
+                     OverviewNavButton,
+                     TemplatesNavButton,
+                     ImportNavButton,
+                     FillNavButton
+                 })
+        {
+            button.Style = ReferenceEquals(button, activeButton)
+                ? selectedStyle
+                : regularStyle;
+        }
     }
 
     private void TemplateSearchBox_TextChanged(object sender, TextChangedEventArgs e)

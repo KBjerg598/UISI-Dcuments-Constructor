@@ -6,12 +6,24 @@ public partial class TemplateNameWindow : Window
 {
     private readonly HashSet<string> _existingNames;
 
-    public TemplateNameWindow(string suggestedName, IEnumerable<string> existingNames)
+    public TemplateNameWindow(
+        string suggestedName,
+        IEnumerable<string> existingNames,
+        bool isRename = false)
     {
         InitializeComponent();
 
         _existingNames = existingNames.ToHashSet(StringComparer.CurrentCultureIgnoreCase);
         TemplateNameTextBox.Text = suggestedName;
+
+        if (isRename)
+        {
+            Title = "Переименование шаблона";
+            DialogTitleText.Text = "Переименуйте шаблон";
+            DialogDescriptionText.Text =
+                "Новое название сразу появится в библиотеке программы.";
+            ConfirmButtonText.Text = "Сохранить";
+        }
     }
 
     public string TemplateName { get; private set; } = string.Empty;

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="Название шаблона"
+        Style="{StaticResource AppWindowStyle}"
         Width="540"
         Height="370"
         ResizeMode="NoResize"
@@ -30,13 +31,15 @@
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"
                                                  Foreground="#6559E8"
-                                                 Kind="FilePlusOutline" />
+                                                 Kind="FileEditOutline" />
                     </Border>
                     <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                        <TextBlock FontSize="22"
+                        <TextBlock x:Name="DialogTitleText"
+                                   FontSize="22"
                                    FontWeight="SemiBold"
                                    Text="Назовите шаблон" />
-                        <TextBlock Margin="0,4,0,0"
+                        <TextBlock x:Name="DialogDescriptionText"
+                                   Margin="0,4,0,0"
                                    FontSize="12"
                                    Foreground="{StaticResource MutedTextBrush}"
                                    Text="Он будет сохранён в вашей библиотеке документов." />
@@ -81,7 +84,9 @@
                             Style="{StaticResource PrimaryButtonStyle}"
                             Click="Save_Click">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock VerticalAlignment="Center" Text="Импортировать" />
+                            <TextBlock x:Name="ConfirmButtonText"
+                                       VerticalAlignment="Center"
+                                       Text="Импортировать" />
                             <materialDesign:PackIcon Width="17"
                                                      Height="17"
                                                      Margin="8,0,0,0"

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="UISI — Конструктор документов"
+        Style="{StaticResource AppWindowStyle}"
         Width="1440"
         Height="900"
         MinWidth="1120"
@@ -29,16 +30,14 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Orientation="Horizontal">
-                    <Border Width="44"
-                            Height="44"
-                            Background="#6D5EF3"
-                            CornerRadius="14">
-                        <TextBlock HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   FontSize="21"
-                                   FontWeight="Bold"
-                                   Foreground="White"
-                                   Text="U" />
+                    <Border Width="58"
+                            Height="58"
+                            Background="#0D0D12"
+                            CornerRadius="16">
+                        <Image Source="/Assets/uisi-logo.png"
+                               Stretch="Uniform"
+                               SnapsToDevicePixels="True"
+                               RenderOptions.BitmapScalingMode="Fant" />
                     </Border>
                     <StackPanel Margin="12,1,0,0">
                         <TextBlock FontSize="17"
@@ -59,7 +58,8 @@
                                Foreground="#74778D"
                                Text="РАБОЧЕЕ ПРОСТРАНСТВО" />
 
-                    <Button Style="{StaticResource SelectedNavButtonStyle}"
+                    <Button x:Name="OverviewNavButton"
+                            Style="{StaticResource SelectedNavButtonStyle}"
                             Click="OverviewNav_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Width="21"
@@ -70,7 +70,8 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}"
+                    <Button x:Name="TemplatesNavButton"
+                            Style="{StaticResource NavButtonStyle}"
                             Click="TemplatesNav_Click">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -99,7 +100,8 @@
                         </Grid>
                     </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}"
+                    <Button x:Name="ImportNavButton"
+                            Style="{StaticResource NavButtonStyle}"
                             Click="ImportTemplate_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Width="21"
@@ -110,7 +112,8 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource NavButtonStyle}"
+                    <Button x:Name="FillNavButton"
+                            Style="{StaticResource NavButtonStyle}"
                             Click="FillDocument_Click">
                         <StackPanel Orientation="Horizontal">
                             <materialDesign:PackIcon Width="21"
@@ -150,9 +153,13 @@
                                        Foreground="#9699AD"
                                        TextWrapping="Wrap"
                                        Text="Три коротких шага — и первый документ будет готов." />
-                            <Button Margin="-8,7,0,-6"
+                            <Button MinWidth="0"
+                                    Height="34"
+                                    Margin="0,8,0,0"
+                                    Padding="8,0"
                                     HorizontalAlignment="Left"
                                     Style="{StaticResource MaterialDesignFlatButton}"
+                                    materialDesign:ButtonAssist.CornerRadius="8"
                                     Foreground="#A99FFF"
                                     Click="ShowHelp_Click"
                                     Content="Открыть инструкцию" />
@@ -167,16 +174,14 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Border Width="35"
-                                    Height="35"
-                                    Background="#6156D9"
-                                    CornerRadius="11">
-                                <TextBlock HorizontalAlignment="Center"
-                                           VerticalAlignment="Center"
-                                           FontSize="12"
-                                           FontWeight="Bold"
-                                           Foreground="White"
-                                           Text="U" />
+                            <Border Width="42"
+                                    Height="42"
+                                    Background="#0D0D12"
+                                    CornerRadius="12">
+                                <Image Source="/Assets/uisi-logo.png"
+                                       Stretch="Uniform"
+                                       SnapsToDevicePixels="True"
+                                       RenderOptions.BitmapScalingMode="Fant" />
                             </Border>
                             <StackPanel Grid.Column="1" Margin="10,1,0,0">
                                 <TextBlock FontSize="12"
@@ -226,14 +231,14 @@
                             Orientation="Horizontal">
                     <TextBox x:Name="TemplateSearchBox"
                              Width="260"
-                             Height="44"
+                             Height="52"
                              Margin="0,0,12,0"
                              VerticalContentAlignment="Center"
                              Style="{StaticResource MaterialDesignOutlinedTextBox}"
                              materialDesign:HintAssist.Hint="Поиск шаблонов"
                              materialDesign:TextFieldAssist.HasClearButton="True"
                              TextChanged="TemplateSearchBox_TextChanged" />
-                    <Button Height="44"
+                    <Button Height="46"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Click="ImportTemplate_Click">
                         <StackPanel Orientation="Horizontal">
@@ -252,9 +257,9 @@
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto">
                 <StackPanel>
-                    <Border Height="166"
+                    <Border Height="180"
                             Margin="0,0,0,18"
-                            Padding="28,24"
+                            Padding="28,20"
                             CornerRadius="24">
                         <Border.Background>
                             <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -270,16 +275,18 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel VerticalAlignment="Center">
-                                <Border HorizontalAlignment="Left"
-                                        Padding="10,4"
+                                <Border Height="26"
+                                        HorizontalAlignment="Left"
+                                        Padding="12,0"
                                         Background="#30FFFFFF"
                                         CornerRadius="10">
-                                    <TextBlock FontSize="10"
+                                    <TextBlock VerticalAlignment="Center"
+                                               FontSize="10"
                                                FontWeight="SemiBold"
                                                Foreground="White"
                                                Text="БЫСТРЫЙ СТАРТ" />
                                 </Border>
-                                <TextBlock Margin="0,12,0,4"
+                                <TextBlock Margin="0,10,0,4"
                                            FontSize="24"
                                            FontWeight="SemiBold"
                                            Foreground="White"
@@ -287,9 +294,9 @@
                                 <TextBlock FontSize="12"
                                            Foreground="#E8E5FF"
                                            Text="Выберите шаблон, заполните поля — остальное сделает программа." />
-                                <Button Width="154"
+                                <Button MinWidth="178"
                                         Height="36"
-                                        Margin="0,14,0,0"
+                                        Margin="0,10,0,0"
                                         HorizontalAlignment="Left"
                                         Style="{StaticResource MaterialDesignRaisedButton}"
                                         Background="White"
@@ -499,23 +506,43 @@
                                                                    FontWeight="SemiBold"
                                                                    Text="{Binding Name}"
                                                                    TextTrimming="CharacterEllipsis" />
-                                                        <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
+                                                        <Grid Margin="0,5,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
                                                             <TextBlock FontSize="11"
                                                                        Foreground="{StaticResource MutedTextBrush}"
                                                                        Text="{Binding FieldCountText}" />
-                                                            <TextBlock Margin="8,0"
+                                                            <TextBlock Grid.Column="1"
+                                                                       Margin="8,0"
                                                                        FontSize="11"
                                                                        Foreground="#C4C5CF"
                                                                        Text="•" />
-                                                            <TextBlock FontSize="11"
+                                                            <TextBlock Grid.Column="2"
+                                                                       FontSize="11"
                                                                        Foreground="{StaticResource MutedTextBrush}"
-                                                                       Text="{Binding UpdatedAtDisplay}" />
-                                                        </StackPanel>
+                                                                       Text="{Binding UpdatedAtDisplay}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </Grid>
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="2"
                                                                 VerticalAlignment="Center"
                                                                 Orientation="Horizontal">
+                                                        <Button Width="38"
+                                                                Height="38"
+                                                                Margin="0,0,8,0"
+                                                                Padding="0"
+                                                                Style="{StaticResource QuietButtonStyle}"
+                                                                Tag="{Binding}"
+                                                                ToolTip="Переименовать шаблон"
+                                                                Click="RenameTemplateFromCard_Click">
+                                                            <materialDesign:PackIcon Width="18"
+                                                                                     Height="18"
+                                                                                     Kind="PencilOutline" />
+                                                        </Button>
                                                         <Button Height="38"
                                                                 Margin="0,0,8,0"
                                                                 Style="{StaticResource SecondaryButtonStyle}"
@@ -619,6 +646,7 @@
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
                                                 <Border Width="44" Height="44" Background="#6658EB" CornerRadius="14">
                                                     <materialDesign:PackIcon Width="23"
@@ -637,33 +665,49 @@
                                                                Margin="0,3,0,0"
                                                                FontSize="14"
                                                                FontWeight="SemiBold"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
                                                 </StackPanel>
+                                                <Button Grid.Column="2"
+                                                        Width="36"
+                                                        Height="36"
+                                                        Margin="10,0,0,0"
+                                                        Padding="0"
+                                                        VerticalAlignment="Center"
+                                                        Style="{StaticResource QuietButtonStyle}"
+                                                        ToolTip="Переименовать шаблон"
+                                                        Click="RenameCurrentTemplate_Click">
+                                                    <materialDesign:PackIcon Width="18"
+                                                                             Height="18"
+                                                                             Kind="PencilOutline" />
+                                                </Button>
                                             </Grid>
                                         </Border>
 
                                         <StackPanel Grid.Row="1" Margin="0,16,0,13">
-                                            <TextBlock FontSize="14"
-                                                       FontWeight="SemiBold"
-                                                       Text="Готовность шаблона" />
-                                            <TextBlock x:Name="CurrentTemplateHintText"
-                                                       Margin="0,4,0,0"
-                                                       FontSize="11"
-                                                       Foreground="{StaticResource MutedTextBrush}"
-                                                       Text="Откройте шаблон в Word и добавьте поля." />
-                                            <Grid Margin="0,12,0,0">
-                                                <ProgressBar x:Name="CurrentProgressBar"
-                                                             Height="7"
-                                                             Maximum="100"
-                                                             Value="40"
-                                                             Style="{StaticResource MaterialDesignLinearProgressBar}" />
+                                            <Grid>
+                                                <TextBlock FontSize="14"
+                                                           FontWeight="SemiBold"
+                                                           Text="Готовность шаблона" />
                                                 <TextBlock x:Name="CurrentProgressText"
-                                                           Margin="0,-20,0,0"
                                                            HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"
                                                            FontSize="10"
                                                            Foreground="{StaticResource PrimaryBrush}"
                                                            Text="40%" />
                                             </Grid>
+                                            <TextBlock x:Name="CurrentTemplateHintText"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource MutedTextBrush}"
+                                                       TextWrapping="Wrap"
+                                                       Text="Откройте шаблон в Word и добавьте поля." />
+                                            <ProgressBar x:Name="CurrentProgressBar"
+                                                         Height="7"
+                                                         Margin="0,12,0,0"
+                                                         Maximum="100"
+                                                         Value="40"
+                                                         Style="{StaticResource MaterialDesignLinearProgressBar}" />
                                             <TextBlock x:Name="TemplatePathText"
                                                        Margin="0,12,0,0"
                                                        FontSize="10"

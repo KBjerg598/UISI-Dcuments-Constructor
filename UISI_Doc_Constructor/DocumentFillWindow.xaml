@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="Заполнение документа"
+        Style="{StaticResource AppWindowStyle}"
         Width="720"
         Height="720"
         MinHeight="540"
@@ -112,13 +113,8 @@
                         <Button Width="218"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Click="Generate_Click">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock VerticalAlignment="Center" Text="Сформировать документ" />
-                                <materialDesign:PackIcon Width="17"
-                                                         Height="17"
-                                                         Margin="9,0,0,0"
-                                                         Kind="ArrowRight" />
-                            </StackPanel>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="Сформировать документ" />
                         </Button>
                     </StackPanel>
                 </Grid>
