@@ -1,0 +1,299 @@
+<Window x:Class="UISI_Doc_Constructor.UpdateWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Центр обновлений UISI"
+        Style="{StaticResource AppWindowStyle}"
+        Width="860"
+        Height="650"
+        MinWidth="740"
+        MinHeight="610"
+        WindowStartupLocation="CenterOwner"
+        Loaded="Window_Loaded"
+        Closed="Window_Closed">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="16" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock FontSize="26"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource TextBrush}"
+                           Text="Центр обновлений" />
+                <TextBlock Margin="0,4,0,0"
+                           FontSize="12"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Text="Новые версии загружаются из официальных выпусков проекта на GitHub." />
+            </StackPanel>
+            <Border Grid.Column="1"
+                    Padding="12,7"
+                    VerticalAlignment="Center"
+                    Background="{StaticResource PrimarySoftBrush}"
+                    CornerRadius="11">
+                <StackPanel Orientation="Horizontal">
+                    <materialDesign:PackIcon Width="17"
+                                             Height="17"
+                                             Margin="0,0,7,0"
+                                             VerticalAlignment="Center"
+                                             Foreground="{StaticResource PrimaryBrush}"
+                                             Kind="Github" />
+                    <TextBlock x:Name="SourceBadgeText"
+                               VerticalAlignment="Center"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="#5148A9"
+                               Text="GitHub Releases" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <ScrollViewer Grid.Row="2"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Border MinHeight="184"
+                        Padding="25"
+                        CornerRadius="23">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Offset="0" Color="#4E43D5" />
+                            <GradientStop Offset="0.58" Color="#6D5CEB" />
+                            <GradientStop Offset="1" Color="#8B73F3" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="22" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="StatusIconBorder"
+                                Width="68"
+                                Height="68"
+                                VerticalAlignment="Top"
+                                Background="#2FFFFFFF"
+                                CornerRadius="22">
+                            <materialDesign:PackIcon x:Name="StatusIcon"
+                                                     Width="32"
+                                                     Height="32"
+                                                     HorizontalAlignment="Center"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="White"
+                                                     Kind="Update" />
+                        </Border>
+                        <Grid Grid.Column="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Border HorizontalAlignment="Left"
+                                    Padding="10,4"
+                                    Background="#25FFFFFF"
+                                    CornerRadius="9">
+                                <TextBlock x:Name="StatusPillText"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="White"
+                                           Text="СИСТЕМА ОБНОВЛЕНИЙ" />
+                            </Border>
+                            <TextBlock x:Name="StatusTitleText"
+                                       Grid.Row="1"
+                                       Margin="0,10,0,0"
+                                       FontSize="22"
+                                       FontWeight="SemiBold"
+                                       Foreground="White"
+                                       Text="Готово к проверке" />
+                            <TextBlock x:Name="StatusDescriptionText"
+                                       Grid.Row="2"
+                                       Margin="0,5,0,14"
+                                       FontSize="12"
+                                       LineHeight="19"
+                                       Foreground="#ECE9FF"
+                                       TextWrapping="Wrap"
+                                       Text="Проверим, появился ли новый выпуск программы." />
+                            <Grid Grid.Row="3">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ProgressBar x:Name="UpdateProgressBar"
+                                             Height="7"
+                                             VerticalAlignment="Center"
+                                             Background="#35FFFFFF"
+                                             BorderThickness="0"
+                                             Foreground="White"
+                                             Maximum="100"
+                                             Value="0" />
+                                <TextBlock x:Name="ProgressValueText"
+                                           Grid.Column="1"
+                                           Margin="12,0,0,0"
+                                           VerticalAlignment="Center"
+                                           FontSize="11"
+                                           Foreground="White"
+                                           Text="ГОТОВО" />
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <materialDesign:Card Style="{StaticResource DashboardCardStyle}" Padding="17">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" Background="#ECE9FF" CornerRadius="13">
+                                <materialDesign:PackIcon Width="21" Height="21"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="#6559E8"
+                                                         Kind="ApplicationCogOutline" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock FontSize="10" Foreground="{StaticResource MutedTextBrush}" Text="ТЕКУЩАЯ ВЕРСИЯ" />
+                                <TextBlock x:Name="CurrentVersionText" Margin="0,3,0,0" FontSize="16" FontWeight="SemiBold" Text="0.1.0" />
+                            </StackPanel>
+                        </Grid>
+                    </materialDesign:Card>
+
+                    <materialDesign:Card Grid.Column="2" Style="{StaticResource DashboardCardStyle}" Padding="17">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" Background="{StaticResource SuccessSoftBrush}" CornerRadius="13">
+                                <materialDesign:PackIcon Width="21" Height="21"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{StaticResource SuccessBrush}"
+                                                         Kind="SourceBranch" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock FontSize="10" Foreground="{StaticResource MutedTextBrush}" Text="КАНАЛ" />
+                                <TextBlock x:Name="ChannelText" Margin="0,3,0,0" FontSize="16" FontWeight="SemiBold" Text="Тестовый" />
+                            </StackPanel>
+                        </Grid>
+                    </materialDesign:Card>
+
+                    <materialDesign:Card Grid.Column="4" Style="{StaticResource DashboardCardStyle}" Padding="17">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="42" Height="42" Background="{StaticResource WarningSoftBrush}" CornerRadius="13">
+                                <materialDesign:PackIcon Width="21" Height="21"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{StaticResource WarningBrush}"
+                                                         Kind="PackageVariantClosedCheck" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock FontSize="10" Foreground="{StaticResource MutedTextBrush}" Text="ПАКЕТ" />
+                                <TextBlock x:Name="PackageSizeText" Margin="0,3,0,0" FontSize="16" FontWeight="SemiBold" Text="Будет определён" />
+                            </StackPanel>
+                        </Grid>
+                    </materialDesign:Card>
+                </Grid>
+
+                <materialDesign:Card Margin="0,16,0,2"
+                                     Padding="20"
+                                     Style="{StaticResource DashboardCardStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="10" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Text="Что изменилось" />
+                            <TextBlock x:Name="AvailableVersionText"
+                                       Grid.Column="1"
+                                       FontSize="11"
+                                       Foreground="{StaticResource PrimaryBrush}"
+                                       Text="Новых выпусков пока нет" />
+                        </Grid>
+                        <TextBlock x:Name="ReleaseNotesText"
+                                   Grid.Row="2"
+                                   MaxHeight="110"
+                                   FontSize="12"
+                                   LineHeight="19"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="После проверки здесь появится краткое описание новой версии."
+                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                </materialDesign:Card>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                <materialDesign:PackIcon Width="18"
+                                         Height="18"
+                                         Margin="0,0,8,0"
+                                         Foreground="{StaticResource SuccessBrush}"
+                                         Kind="ShieldCheckOutline" />
+                <TextBlock VerticalAlignment="Center"
+                           FontSize="11"
+                           Foreground="{StaticResource MutedTextBrush}"
+                           Text="Шаблоны и документы хранятся отдельно и сохранятся после обновления." />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="CheckAgainButton"
+                        MinWidth="118"
+                        Margin="0,0,10,0"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Click="CheckAgain_Click"
+                        Content="Проверить" />
+                <Button x:Name="PrimaryActionButton"
+                        MinWidth="210"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Click="PrimaryAction_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <materialDesign:PackIcon x:Name="PrimaryActionIcon"
+                                                 Width="18"
+                                                 Height="18"
+                                                 Margin="0,0,8,0"
+                                                 Kind="Refresh" />
+                        <TextBlock x:Name="PrimaryActionText"
+                                   VerticalAlignment="Center"
+                                   Text="Проверить обновления" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

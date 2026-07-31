@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private readonly TemplateStorageService _storageService = new();
     private readonly OpenXmlDocumentService _documentService = new();
     private readonly WordTemplateEditorService _wordEditorService = new();
+    private readonly AppUpdateService _updateService = new();
     private readonly ObservableCollection<DocumentTemplate> _templates = [];
     private readonly ObservableCollection<TemplateField> _fields = [];
 
@@ -36,6 +37,8 @@ public partial class MainWindow : Window
 
         var templatesView = CollectionViewSource.GetDefaultView(_templates);
         templatesView.Filter = TemplateMatchesSearch;
+
+        _updateService.StatusChanged += UpdateUpdateBadge;
 
         SetGreeting();
         SetActiveNavigation(OverviewNavButton);
@@ -497,6 +500,51 @@ public partial class MainWindow : Window
         };
 
         helpWindow.ShowDialog();
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (!_updateService.IsInstalled || !_updateService.ShouldCheckAutomatically())
+        {
+            return;
+        }
+
+        try
+        {
+            await _updateService.CheckForUpdatesAsync();
+        }
+        finally
+        {
+            _updateService.RecordAutomaticCheck();
+        }
+    }
+
+    private void ShowUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        var updateWindow = new UpdateWindow(_updateService)
+        {
+            Owner = this
+        };
+
+        updateWindow.ShowDialog();
+        UpdateUpdateBadge(_updateService.LastStatus);
+    }
+
+    internal void PrepareForUpdate()
+    {
+        _wordEditorService.CloseDocument(saveChanges: true);
+    }
+
+    private void UpdateUpdateBadge(AppUpdateStatus status)
+    {
+        var hasUpdate = status.State is AppUpdateState.Available or AppUpdateState.ReadyToInstall;
+        UpdateAvailableBadge.Visibility = hasUpdate
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        UpdateAvailableBadgeText.Text = status.State == AppUpdateState.ReadyToInstall
+            ? "100%"
+            : "NEW";
+        UpdatesNavButton.ToolTip = status.Title;
     }
 
     private void RenameTemplate(DocumentTemplate template)
@@ -1095,6 +1143,7 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        _updateService.StatusChanged -= UpdateUpdateBadge;
         _wordEditorService.Dispose();
     }
 }

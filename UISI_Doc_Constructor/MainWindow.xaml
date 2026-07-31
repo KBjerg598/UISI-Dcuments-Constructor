@@ -9,6 +9,7 @@
         MinWidth="1120"
         MinHeight="700"
         WindowStartupLocation="CenterScreen"
+        Loaded="MainWindow_Loaded"
         Closed="Window_Closed">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -122,6 +123,45 @@
                                                      Kind="FileDocumentEditOutline" />
                             <TextBlock VerticalAlignment="Center" Text="Заполнить документ" />
                         </StackPanel>
+                    </Button>
+
+                    <TextBlock Margin="12,18,0,8"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="#74778D"
+                               Text="СИСТЕМА" />
+
+                    <Button x:Name="UpdatesNavButton"
+                            Style="{StaticResource NavButtonStyle}"
+                            Click="ShowUpdates_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Width="21"
+                                                     Height="21"
+                                                     Margin="0,0,13,0"
+                                                     Kind="Update" />
+                            <TextBlock Grid.Column="1"
+                                       VerticalAlignment="Center"
+                                       Text="Обновления" />
+                            <Border x:Name="UpdateAvailableBadge"
+                                    Grid.Column="2"
+                                    MinWidth="28"
+                                    Padding="7,2"
+                                    Background="#6559E8"
+                                    CornerRadius="9"
+                                    Visibility="Collapsed">
+                                <TextBlock x:Name="UpdateAvailableBadgeText"
+                                           HorizontalAlignment="Center"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Foreground="White"
+                                           Text="NEW" />
+                            </Border>
+                        </Grid>
                     </Button>
                 </StackPanel>
 
