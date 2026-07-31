@@ -29,7 +29,6 @@ public sealed class OpenXmlDocumentService
                     ?? "Без названия",
                 Occurrences = group.Count()
             })
-            .OrderBy(field => field.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }
 

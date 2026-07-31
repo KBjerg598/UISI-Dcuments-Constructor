@@ -1,65 +1,114 @@
 <Window x:Class="UISI_Doc_Constructor.FieldEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="Создание поля"
-        Width="500"
-        Height="390"
+        Width="580"
+        Height="500"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner">
-    <Grid Margin="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="18" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="14" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <Grid Margin="18">
+        <materialDesign:Card Style="{StaticResource DialogCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="20" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="12" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock FontSize="23"
-                       FontWeight="Bold"
-                       Text="Создать поле" />
-            <TextBlock Margin="0,6,0,0"
-                       Foreground="{StaticResource MutedTextBrush}"
-                       TextWrapping="Wrap"
-                       Text="Новое поле получит постоянный внутренний идентификатор. Существующее поле можно повторить в другом месте документа." />
-        </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="54" Height="54" Background="#ECE9FF" CornerRadius="17">
+                        <materialDesign:PackIcon Width="27"
+                                                 Height="27"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="#6559E8"
+                                                 Kind="PencilOutline" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Text="Создать поле" />
+                        <TextBlock Margin="0,4,0,0"
+                                   FontSize="12"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Выделенный в Word текст станет заполняемым полем." />
+                    </StackPanel>
+                </Grid>
 
-        <StackPanel Grid.Row="2">
-            <RadioButton x:Name="NewFieldRadioButton"
-                         IsChecked="True"
-                         Checked="FieldMode_Changed"
-                         Content="Создать новое поле" />
-            <TextBlock Margin="0,10,0,5"
-                       FontWeight="SemiBold"
-                       Text="Название поля" />
-            <TextBox x:Name="FieldNameTextBox"
-                     MaxLength="100" />
-        </StackPanel>
+                <Border Grid.Row="2"
+                        Padding="15"
+                        Background="#F8F7FF"
+                        BorderBrush="#E6E2FF"
+                        BorderThickness="1"
+                        CornerRadius="13">
+                    <StackPanel>
+                        <RadioButton x:Name="NewFieldRadioButton"
+                                     GroupName="FieldCreationMode"
+                                     IsChecked="True"
+                                     Checked="FieldMode_Changed"
+                                     Content="Создать новое поле" />
+                        <TextBox x:Name="FieldNameTextBox"
+                                 Height="50"
+                                 Margin="0,12,0,0"
+                                 MaxLength="100"
+                                 VerticalContentAlignment="Center"
+                                 Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                 materialDesign:HintAssist.Hint="Название поля"
+                                 materialDesign:TextFieldAssist.HasClearButton="True" />
+                    </StackPanel>
+                </Border>
 
-        <StackPanel Grid.Row="4">
-            <RadioButton x:Name="ExistingFieldRadioButton"
-                         Checked="FieldMode_Changed"
-                         Content="Повторить существующее поле" />
-            <ComboBox x:Name="ExistingFieldsComboBox"
-                      Margin="0,10,0,0"
-                      IsEnabled="False"
-                      DisplayMemberPath="DisplayName" />
-        </StackPanel>
+                <Border Grid.Row="4"
+                        Padding="15"
+                        Background="#FCFCFE"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="13">
+                    <StackPanel>
+                        <RadioButton x:Name="ExistingFieldRadioButton"
+                                     GroupName="FieldCreationMode"
+                                     Checked="FieldMode_Changed"
+                                     Content="Повторить существующее поле" />
+                        <ComboBox x:Name="ExistingFieldsComboBox"
+                                  Height="50"
+                                  Margin="0,12,0,0"
+                                  IsEnabled="False"
+                                  DisplayMemberPath="DisplayName"
+                                  Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                  materialDesign:HintAssist.Hint="Выберите поле" />
+                    </StackPanel>
+                </Border>
 
-        <StackPanel Grid.Row="6"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal">
-            <Button Width="100"
-                    Margin="0,0,10,0"
-                    Click="Cancel_Click"
-                    Content="Отмена" />
-            <Button Width="120"
-                    Style="{StaticResource PrimaryButtonStyle}"
-                    Click="Create_Click"
-                    Content="Создать" />
-        </StackPanel>
+                <StackPanel Grid.Row="6"
+                            HorizontalAlignment="Right"
+                            Orientation="Horizontal">
+                    <Button Width="108"
+                            Margin="0,0,10,0"
+                            Style="{StaticResource QuietButtonStyle}"
+                            Click="Cancel_Click"
+                            Content="Отмена" />
+                    <Button Width="128"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="Create_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock VerticalAlignment="Center" Text="Создать" />
+                            <materialDesign:PackIcon Width="17"
+                                                     Height="17"
+                                                     Margin="8,0,0,0"
+                                                     Kind="ArrowRight" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
     </Grid>
 </Window>
