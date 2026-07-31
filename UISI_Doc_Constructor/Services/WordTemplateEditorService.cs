@@ -22,6 +22,14 @@ public sealed class WordTemplateEditorService : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
+        OfficeInteropAssemblyResolver.Initialize();
+
+        if (!OfficeInteropAssemblyResolver.IsWordInstalled())
+        {
+            throw new InvalidOperationException(
+                "Microsoft Word не найден. Установите настольную версию Word и повторите попытку.");
+        }
+
         var fullPath = Path.GetFullPath(path);
         if (IsDocumentOpen(fullPath))
         {
@@ -50,6 +58,25 @@ public sealed class WordTemplateEditorService : IDisposable
 
             _documentPath = fullPath;
             _document.Activate();
+        }
+        catch (FileNotFoundException exception) when (
+            string.Equals(
+                Path.GetFileNameWithoutExtension(exception.FileName),
+                "office",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            CloseDocument(saveChanges: false);
+            throw new InvalidOperationException(
+                "Не удалось найти компоненты Microsoft Office для взаимодействия с Word. " +
+                "Проверьте установку Office и компонент «Поддержка программирования .NET».",
+                exception);
+        }
+        catch (COMException exception)
+        {
+            CloseDocument(saveChanges: false);
+            throw new InvalidOperationException(
+                "Не удалось запустить Microsoft Word. Проверьте установку Office и повторите попытку.",
+                exception);
         }
         catch
         {
