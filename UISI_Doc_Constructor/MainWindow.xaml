@@ -1,12 +1,197 @@
-﻿<Window x:Class="UISI_Doc_Constructor.MainWindow"
+<Window x:Class="UISI_Doc_Constructor.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:UISI_Doc_Constructor"
-        mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="UISI — Конструктор документов"
+        Width="1040"
+        Height="720"
+        MinWidth="900"
+        MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Closed="Window_Closed">
+    <Grid Margin="28">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="20" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="18" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
+        <StackPanel Grid.Row="0">
+            <TextBlock FontSize="28"
+                       FontWeight="Bold"
+                       Text="Конструктор документов" />
+            <TextBlock Margin="0,6,0,0"
+                       FontSize="14"
+                       Foreground="{StaticResource MutedTextBrush}"
+                       Text="Создавайте поля в Word и формируйте готовые документы из безопасной копии шаблона." />
+        </StackPanel>
+
+        <Border Grid.Row="2"
+                Padding="20"
+                Background="{StaticResource CardBackgroundBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="РАБОЧИЙ ШАБЛОН" />
+                    <TextBlock x:Name="TemplateNameText"
+                               Margin="0,7,0,0"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Text="Шаблон ещё не выбран" />
+                    <TextBlock x:Name="TemplatePathText"
+                               Margin="0,5,0,0"
+                               MaxWidth="650"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="Импортируйте DOCX — программа создаст отдельную рабочую копию."
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Margin="24,0,0,0"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal">
+                    <Button Margin="0,0,10,0"
+                            Click="OpenStoredTemplate_Click"
+                            Content="Открыть копию" />
+                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                            Click="ImportTemplate_Click"
+                            Content="Импортировать DOCX" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.92*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="1.08*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Padding="20"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <StackPanel>
+                    <TextBlock FontSize="19"
+                               FontWeight="SemiBold"
+                               Text="1. Подготовьте шаблон" />
+                    <TextBlock Margin="0,6,0,18"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               Text="Откройте рабочую копию в Word. Выделите пример текста и создайте из него поле." />
+
+                    <Button x:Name="OpenWordButton"
+                            Margin="0,0,0,10"
+                            IsEnabled="False"
+                            Click="OpenInWord_Click"
+                            Content="Открыть шаблон в Microsoft Word" />
+                    <Button x:Name="CreateFieldButton"
+                            Margin="0,0,0,10"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
+                            Click="CreateField_Click"
+                            Content="Создать поле из выделенного текста" />
+                    <Button x:Name="RefreshFieldsButton"
+                            IsEnabled="False"
+                            Click="RefreshFields_Click"
+                            Content="Обновить список полей" />
+
+                    <Border Margin="0,22,0,0"
+                            Padding="14"
+                            Background="#F5F7FB"
+                            CornerRadius="8">
+                        <TextBlock Foreground="{StaticResource MutedTextBrush}"
+                                   TextWrapping="Wrap">
+                            <Run FontWeight="SemiBold"
+                                 Foreground="{StaticResource TextBrush}"
+                                 Text="Подсказка: " />
+                            <Run Text="одно поле можно вставить в документ несколько раз. При заполнении значение заменится во всех местах." />
+                        </TextBlock>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2"
+                    Padding="20"
+                    Background="{StaticResource CardBackgroundBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel>
+                        <TextBlock FontSize="19"
+                                   FontWeight="SemiBold"
+                                   Text="2. Поля документа" />
+                        <TextBlock x:Name="FieldsSummaryText"
+                                   Margin="0,6,0,14"
+                                   Foreground="{StaticResource MutedTextBrush}"
+                                   Text="Поля пока не созданы" />
+                    </StackPanel>
+
+                    <ListBox x:Name="FieldsList"
+                             Grid.Row="1"
+                             Margin="0,0,0,16"
+                             BorderBrush="{StaticResource BorderBrush}"
+                             BorderThickness="1"
+                             HorizontalContentAlignment="Stretch">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="8,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock VerticalAlignment="Center"
+                                               FontWeight="SemiBold"
+                                               Text="{Binding DisplayName}" />
+                                    <TextBlock Grid.Column="1"
+                                               Margin="16,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{StaticResource MutedTextBrush}"
+                                               Text="{Binding OccurrencesText}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Button x:Name="FillDocumentButton"
+                            Grid.Row="2"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            IsEnabled="False"
+                            Click="FillDocument_Click"
+                            Content="3. Заполнить и сформировать документ" />
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="6"
+                Padding="12,9"
+                Background="#EAF0FF"
+                CornerRadius="8">
+            <TextBlock x:Name="StatusText"
+                       Foreground="#3153B8"
+                       Text="Готово к работе. Начните с импорта документа DOCX." />
+        </Border>
     </Grid>
 </Window>
