@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using UISI_Doc_Constructor.Models;
 using UISI_Doc_Constructor.Services;
@@ -14,11 +15,13 @@ namespace UISI_Doc_Constructor;
 public partial class MainWindow : Window
 {
     private const string FieldDragFormat = "UISI.TemplateField";
+    private const double FieldAutoScrollZone = 46;
 
     private readonly TemplateStorageService _storageService = new();
     private readonly OpenXmlDocumentService _documentService = new();
     private readonly WordTemplateEditorService _wordEditorService = new();
     private readonly AppUpdateService _updateService = new();
+    private readonly DispatcherTimer _fieldAutoScrollTimer;
     private readonly ObservableCollection<DocumentTemplate> _templates = [];
     private readonly ObservableCollection<TemplateField> _fields = [];
 
@@ -26,11 +29,19 @@ public partial class MainWindow : Window
     private string? _currentTemplatePath;
     private bool _isSelectingTemplate;
     private Point _fieldDragStartPoint;
+    private Point _fieldDragPointerPosition;
     private TemplateField? _draggedField;
+    private double _fieldAutoScrollDelta;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _fieldAutoScrollTimer = new DispatcherTimer(DispatcherPriority.Input)
+        {
+            Interval = TimeSpan.FromMilliseconds(32)
+        };
+        _fieldAutoScrollTimer.Tick += FieldAutoScrollTimer_Tick;
 
         TemplatesList.ItemsSource = _templates;
         FieldsList.ItemsSource = _fields;
@@ -135,7 +146,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OpenTemplateFromCard_Click(object sender, RoutedEventArgs e)
+    private void SelectTemplateFromCard_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: DocumentTemplate template })
         {
@@ -245,9 +256,11 @@ public partial class MainWindow : Window
 
         RunSafely(() =>
         {
-            _wordEditorService.SaveDocument();
+            var saveResult = _wordEditorService.SaveDocument();
             ReloadFields();
-            SetStatus("Список и порядок полей обновлены.");
+            SetStatus(saveResult == WordDocumentSaveResult.Disconnected
+                ? "Word был закрыт. Поля обновлены по последней сохранённой версии шаблона."
+                : "Список и порядок полей обновлены.");
         });
     }
 
@@ -358,6 +371,7 @@ public partial class MainWindow : Window
         finally
         {
             _draggedField = null;
+            StopFieldAutoScroll();
             ClearFieldDropIndicators();
         }
     }
@@ -374,6 +388,8 @@ public partial class MainWindow : Window
         e.Effects = DragDropEffects.Move;
         e.Handled = true;
 
+        UpdateFieldAutoScroll(e.GetPosition(FieldsList));
+
         var targetItem = ItemsControl.ContainerFromElement(
             FieldsList,
             e.OriginalSource as DependencyObject) as ListBoxItem;
@@ -386,12 +402,14 @@ public partial class MainWindow : Window
     {
         if (!FieldsList.IsMouseOver)
         {
+            StopFieldAutoScroll();
             ClearFieldDropIndicators();
         }
     }
 
     private void FieldsList_Drop(object sender, DragEventArgs e)
     {
+        StopFieldAutoScroll();
         ClearFieldDropIndicators();
 
         if (e.Data.GetData(FieldDragFormat) is not TemplateField draggedField)
@@ -598,14 +616,17 @@ public partial class MainWindow : Window
 
         RunSafely(() =>
         {
+            var saveResult = WordDocumentSaveResult.NoOpenDocument;
             if (_currentTemplate?.Id == template.Id)
             {
-                _wordEditorService.SaveDocument();
+                saveResult = _wordEditorService.SaveDocument();
                 PersistFieldOrder();
             }
 
             _storageService.Export(template.Id, saveDialog.FileName);
-            SetStatus($"Шаблон «{template.Name}» экспортирован: {saveDialog.FileName}");
+            SetStatus(saveResult == WordDocumentSaveResult.Disconnected
+                ? $"Word был закрыт. Экспортирована последняя сохранённая версия шаблона «{template.Name}»: {saveDialog.FileName}"
+                : $"Шаблон «{template.Name}» экспортирован: {saveDialog.FileName}");
         });
     }
 
@@ -837,7 +858,22 @@ public partial class MainWindow : Window
             return;
         }
 
-        var fields = _documentService.ReadFields(_currentTemplatePath);
+        IReadOnlyList<TemplateField> fields;
+        try
+        {
+            fields = _documentService.ReadFields(_currentTemplatePath);
+        }
+        catch (Exception exception) when (
+            exception is IOException or FileFormatException or UnauthorizedAccessException)
+        {
+            _fields.Clear();
+            UpdateFieldsSummary();
+            SetStatus(
+                $"Не удалось прочитать шаблон «{_currentTemplate.Name}». " +
+                "Закройте его в Word или импортируйте исправную копию.");
+            return;
+        }
+
         var orderIndexes = _currentTemplate.FieldOrder
             .Select((tag, index) => new { tag, index })
             .GroupBy(item => item.tag, StringComparer.Ordinal)
@@ -998,6 +1034,72 @@ public partial class MainWindow : Window
         }
     }
 
+    private void UpdateFieldAutoScroll(Point pointerPosition)
+    {
+        _fieldDragPointerPosition = pointerPosition;
+        var viewportHeight = FieldsList.ActualHeight;
+        if (viewportHeight <= 0)
+        {
+            StopFieldAutoScroll();
+            return;
+        }
+
+        var scrollZone = Math.Min(FieldAutoScrollZone, viewportHeight / 3);
+        if (pointerPosition.Y < scrollZone)
+        {
+            var intensity = Math.Clamp((scrollZone - pointerPosition.Y) / scrollZone, 0, 1);
+            _fieldAutoScrollDelta = -(4 + 12 * intensity);
+        }
+        else if (pointerPosition.Y > viewportHeight - scrollZone)
+        {
+            var intensity = Math.Clamp(
+                (pointerPosition.Y - (viewportHeight - scrollZone)) / scrollZone,
+                0,
+                1);
+            _fieldAutoScrollDelta = 4 + 12 * intensity;
+        }
+        else
+        {
+            StopFieldAutoScroll();
+            return;
+        }
+
+        if (!_fieldAutoScrollTimer.IsEnabled)
+        {
+            _fieldAutoScrollTimer.Start();
+        }
+    }
+
+    private void FieldAutoScrollTimer_Tick(object? sender, EventArgs e)
+    {
+        var scrollViewer = FindVisualChild<ScrollViewer>(FieldsList);
+        if (scrollViewer is null)
+        {
+            StopFieldAutoScroll();
+            return;
+        }
+
+        var targetOffset = Math.Clamp(
+            scrollViewer.VerticalOffset + _fieldAutoScrollDelta,
+            0,
+            scrollViewer.ScrollableHeight);
+        scrollViewer.ScrollToVerticalOffset(targetOffset);
+
+        var hitElement = FieldsList.InputHitTest(_fieldDragPointerPosition) as DependencyObject;
+        var targetItem = ItemsControl.ContainerFromElement(FieldsList, hitElement) as ListBoxItem;
+        var insertAfter = targetItem is not null &&
+                          _fieldDragPointerPosition.Y -
+                          targetItem.TranslatePoint(new Point(), FieldsList).Y >
+                          targetItem.ActualHeight / 2;
+        ShowFieldDropIndicator(targetItem, insertAfter);
+    }
+
+    private void StopFieldAutoScroll()
+    {
+        _fieldAutoScrollTimer.Stop();
+        _fieldAutoScrollDelta = 0;
+    }
+
     private static T? FindAncestor<T>(DependencyObject? source)
         where T : DependencyObject
     {
@@ -1009,6 +1111,27 @@ public partial class MainWindow : Window
             }
 
             source = VisualTreeHelper.GetParent(source);
+        }
+
+        return null;
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent)
+        where T : DependencyObject
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is T match)
+            {
+                return match;
+            }
+
+            var descendant = FindVisualChild<T>(child);
+            if (descendant is not null)
+            {
+                return descendant;
+            }
         }
 
         return null;
@@ -1143,6 +1266,7 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        StopFieldAutoScroll();
         _updateService.StatusChanged -= UpdateUpdateBadge;
         _wordEditorService.Dispose();
     }

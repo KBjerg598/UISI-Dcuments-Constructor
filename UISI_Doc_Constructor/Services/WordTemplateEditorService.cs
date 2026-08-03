@@ -5,6 +5,13 @@ using Word = Microsoft.Office.Interop.Word;
 
 namespace UISI_Doc_Constructor.Services;
 
+public enum WordDocumentSaveResult
+{
+    NoOpenDocument,
+    Saved,
+    Disconnected
+}
+
 public sealed class WordTemplateEditorService : IDisposable
 {
     private const string FieldTagPrefix = "uisi-field:";
@@ -33,9 +40,16 @@ public sealed class WordTemplateEditorService : IDisposable
         var fullPath = Path.GetFullPath(path);
         if (IsDocumentOpen(fullPath))
         {
-            _application!.Visible = true;
-            _document!.Activate();
-            return;
+            try
+            {
+                _application!.Visible = true;
+                _document!.Activate();
+                return;
+            }
+            catch (COMException exception) when (IsDisconnectedFromWord(exception))
+            {
+                ResetDisconnectedSession();
+            }
         }
 
         CloseDocument(saveChanges: true);
@@ -149,6 +163,13 @@ public sealed class WordTemplateEditorService : IDisposable
                 Occurrences = 1
             };
         }
+        catch (COMException exception) when (IsDisconnectedFromWord(exception))
+        {
+            ResetDisconnectedSession();
+            throw new InvalidOperationException(
+                "Связь с Microsoft Word была потеряна. Откройте шаблон в Word ещё раз.",
+                exception);
+        }
         catch (COMException exception)
         {
             throw new InvalidOperationException(
@@ -163,10 +184,31 @@ public sealed class WordTemplateEditorService : IDisposable
         }
     }
 
-    public void SaveDocument()
+    public WordDocumentSaveResult SaveDocument()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _document?.Save();
+
+        if (_document is null)
+        {
+            return WordDocumentSaveResult.NoOpenDocument;
+        }
+
+        try
+        {
+            _document.Save();
+            return WordDocumentSaveResult.Saved;
+        }
+        catch (COMException exception) when (IsDisconnectedFromWord(exception))
+        {
+            ResetDisconnectedSession();
+            return WordDocumentSaveResult.Disconnected;
+        }
+        catch (COMException exception)
+        {
+            throw new InvalidOperationException(
+                "Microsoft Word не смог сохранить шаблон. Проверьте, что документ доступен для записи.",
+                exception);
+        }
     }
 
     public void CloseDocument(bool saveChanges)
@@ -229,4 +271,21 @@ public sealed class WordTemplateEditorService : IDisposable
             Marshal.FinalReleaseComObject(value);
         }
     }
+
+    private void ResetDisconnectedSession()
+    {
+        ReleaseComObject(_document);
+        _document = null;
+        _documentPath = null;
+
+        ReleaseComObject(_application);
+        _application = null;
+    }
+
+    private static bool IsDisconnectedFromWord(COMException exception) =>
+        exception.HResult is
+            unchecked((int)0x800706BA) or // RPC_S_SERVER_UNAVAILABLE
+            unchecked((int)0x800706BE) or // RPC_S_CALL_FAILED
+            unchecked((int)0x80010108) or // RPC_E_DISCONNECTED
+            unchecked((int)0x800401FD);   // CO_E_OBJNOTCONNECTED
 }

@@ -624,8 +624,10 @@
                                                                 Margin="0,0,8,0"
                                                                 Style="{StaticResource SecondaryButtonStyle}"
                                                                 Tag="{Binding}"
-                                                                Click="OpenTemplateFromCard_Click"
-                                                                Content="Открыть" />
+                                                                ToolTip="Выбрать шаблон для работы"
+                                                                AutomationProperties.Name="Выбрать шаблон"
+                                                                Click="SelectTemplateFromCard_Click"
+                                                                Content="Выбрать" />
                                                         <Button Height="38"
                                                                 Style="{StaticResource PrimaryButtonStyle}"
                                                                 Tag="{Binding}"
@@ -910,7 +912,9 @@
                                                      Drop="FieldsList_Drop"
                                                      MouseDoubleClick="FieldsList_MouseDoubleClick"
                                                      HorizontalContentAlignment="Stretch"
-                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                                     ScrollViewer.CanContentScroll="False"
+                                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
                                                 <ListBox.ItemTemplate>
                                                     <DataTemplate>
                                                         <Grid Height="38">

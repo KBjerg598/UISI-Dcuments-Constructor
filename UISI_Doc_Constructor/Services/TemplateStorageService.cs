@@ -21,6 +21,7 @@ public sealed class TemplateStorageService
     };
 
     private readonly List<DocumentTemplate> _templates;
+    private bool _catalogNeedsRewrite;
 
     public TemplateStorageService(string? rootPath = null)
     {
@@ -36,7 +37,7 @@ public sealed class TemplateStorageService
         Directory.CreateDirectory(TemplatesPath);
 
         _templates = LoadCatalog();
-        if (DiscoverUnregisteredTemplates())
+        if (DiscoverUnregisteredTemplates() || _catalogNeedsRewrite)
         {
             SaveCatalog();
         }
@@ -324,15 +325,19 @@ public sealed class TemplateStorageService
                                 _jsonOptions)
                             ?? [];
 
-            return templates
+            var validTemplates = templates
                 .Where(template =>
                     template.Id != Guid.Empty &&
                     !string.IsNullOrWhiteSpace(template.Name) &&
                     !string.IsNullOrWhiteSpace(template.FileName) &&
+                    !IsTemporaryWordFile(template.FileName) &&
                     File.Exists(Path.Combine(TemplatesPath, Path.GetFileName(template.FileName))))
                 .GroupBy(template => template.Id)
                 .Select(group => group.First())
                 .ToList();
+
+            _catalogNeedsRewrite = validTemplates.Count != templates.Count;
+            return validTemplates;
         }
         catch (JsonException)
         {
@@ -356,7 +361,7 @@ public sealed class TemplateStorageService
         foreach (var path in Directory.EnumerateFiles(TemplatesPath, "*.docx"))
         {
             var fileName = Path.GetFileName(path);
-            if (registeredFileNames.Contains(fileName))
+            if (IsTemporaryWordFile(fileName) || registeredFileNames.Contains(fileName))
             {
                 continue;
             }
@@ -480,6 +485,12 @@ public sealed class TemplateStorageService
                 "На первом этапе поддерживаются только документы DOCX.");
         }
 
+        if (IsTemporaryWordFile(Path.GetFileName(sourcePath)))
+        {
+            throw new InvalidOperationException(
+                "Это служебный файл Microsoft Word. Закройте документ в Word и выберите исходный DOCX без префикса «~$».");
+        }
+
         ValidateDocxContents(sourcePath);
     }
 
@@ -516,6 +527,9 @@ public sealed class TemplateStorageService
             Path.GetExtension(sourcePath),
             PackageExtension,
             StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsTemporaryWordFile(string fileName) =>
+        fileName.StartsWith("~$", StringComparison.OrdinalIgnoreCase);
 
     private PackageArchive ReadPackage(string sourcePath)
     {
