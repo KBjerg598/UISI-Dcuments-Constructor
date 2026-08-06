@@ -4,7 +4,7 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="Заполнение документа"
         Style="{StaticResource AppWindowStyle}"
-        Width="720"
+        Width="820"
         Height="720"
         MinHeight="540"
         WindowStartupLocation="CenterOwner">
@@ -23,6 +23,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Border Width="58" Height="58" Background="#ECE9FF" CornerRadius="18">
                         <materialDesign:PackIcon Width="29"
@@ -41,6 +42,23 @@
                                    Foreground="{StaticResource MutedTextBrush}"
                                    Text="Значения используются только для создания выбранного файла." />
                     </StackPanel>
+                    <Button Grid.Column="2"
+                            Height="42"
+                            Margin="14,0,0,0"
+                            Padding="14,7"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            ToolTip="Загрузить ранее сохранённые значения"
+                            Click="LoadSavedFilling_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Width="18"
+                                                     Height="18"
+                                                     Margin="0,0,8,0"
+                                                     Kind="History" />
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="Загрузить заполнение" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
 
                 <Border Grid.Row="2"
@@ -99,10 +117,13 @@
                                                  Margin="0,0,8,0"
                                                  Foreground="{StaticResource SuccessBrush}"
                                                  Kind="ShieldCheckOutline" />
-                        <TextBlock VerticalAlignment="Center"
+                        <TextBlock x:Name="SavedDataStatusText"
+                                   MaxWidth="330"
+                                   VerticalAlignment="Center"
                                    FontSize="11"
                                    Foreground="{StaticResource MutedTextBrush}"
-                                   Text="Данные не сохраняются в программе" />
+                                   Text="Данные сохраняются локально только после создания документа"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal">
                         <Button Width="108"

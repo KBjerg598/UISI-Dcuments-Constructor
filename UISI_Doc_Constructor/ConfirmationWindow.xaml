@@ -35,7 +35,8 @@
                         <TextBlock x:Name="HeadingText"
                                    FontSize="21"
                                    FontWeight="SemiBold" />
-                        <TextBlock Margin="0,4,0,0"
+                        <TextBlock x:Name="ContextText"
+                                   Margin="0,4,0,0"
                                    FontSize="11"
                                    Foreground="{StaticResource MutedTextBrush}"
                                    Text="Это действие изменит сохранённый DOCX-шаблон." />

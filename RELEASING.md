@@ -13,7 +13,7 @@ Never commit or bundle a GitHub token. `UISI_GITHUB_TOKEN` is supported only for
 Run the release script from the repository root:
 
 ```powershell
-.\scripts\Build-Release.ps1 -Version 0.1.0 -Channel test
+.\scripts\Build-Release.ps1 -Version 1.2.0 -Channel test
 ```
 
 The script restores the pinned Velopack CLI, publishes a self-contained Windows build, and writes the installer and update feed to `artifacts/releases`.

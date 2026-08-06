@@ -102,25 +102,9 @@ public sealed class OpenXmlDocumentService
 
             foreach (var control in matchingControls)
             {
-                var content = control.ChildElements.FirstOrDefault(
-                    element => string.Equals(
-                        element.LocalName,
-                        "sdtContent",
-                        StringComparison.Ordinal));
-                var parent = control.Parent;
-
-                if (content is null || parent is null)
-                {
-                    throw new InvalidDataException(
-                        "Одно из полей имеет повреждённую структуру и не может быть удалено.");
-                }
-
-                foreach (var child in content.ChildElements.ToList())
-                {
-                    parent.InsertBefore(child.CloneNode(true), control);
-                }
-
-                control.Remove();
+                UnwrapContentControl(
+                    control,
+                    "Одно из полей имеет повреждённую структуру и не может быть удалено.");
                 removedCount++;
             }
 
@@ -151,17 +135,25 @@ public sealed class OpenXmlDocumentService
 
         foreach (var root in EnumerateRoots(document))
         {
-            var controls = root.Descendants<SdtElement>().ToList();
+            var controls = root
+                .Descendants<SdtElement>()
+                .Where(control =>
+                {
+                    var tag = GetTag(control);
+                    return tag is not null && values.ContainsKey(tag);
+                })
+                .OrderByDescending(control => control.Ancestors().Count())
+                .ToList();
 
             foreach (var control in controls)
             {
-                var tag = GetTag(control);
-                if (tag is null || !values.TryGetValue(tag, out var value))
-                {
-                    continue;
-                }
+                var tag = GetTag(control)!;
+                var value = values[tag];
 
                 ReplaceText(control, value);
+                UnwrapContentControl(
+                    control,
+                    "Одно из полей имеет повреждённую структуру и не может быть преобразовано в обычный текст.");
                 replacementCount++;
             }
 
@@ -169,6 +161,28 @@ public sealed class OpenXmlDocumentService
         }
 
         return replacementCount;
+    }
+
+    private static void UnwrapContentControl(SdtElement control, string invalidStructureMessage)
+    {
+        var content = control.ChildElements.FirstOrDefault(
+            element => string.Equals(
+                element.LocalName,
+                "sdtContent",
+                StringComparison.Ordinal));
+        var parent = control.Parent;
+
+        if (content is null || parent is null)
+        {
+            throw new InvalidDataException(invalidStructureMessage);
+        }
+
+        foreach (var child in content.ChildElements.ToList())
+        {
+            parent.InsertBefore(child.CloneNode(true), control);
+        }
+
+        control.Remove();
     }
 
     private static TemplateField? ReadField(SdtElement control)

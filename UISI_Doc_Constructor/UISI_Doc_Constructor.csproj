@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <StartupObject>UISI_Doc_Constructor.App</StartupObject>
-    <Version>0.1.1</Version>
+    <Version>1.2.0</Version>
     <Product>UISI Document Constructor</Product>
     <Company>UISI</Company>
     <ApplicationIcon>Assets\uisi-logo.ico</ApplicationIcon>

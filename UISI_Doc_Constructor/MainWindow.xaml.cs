@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private const double FieldAutoScrollZone = 46;
 
     private readonly TemplateStorageService _storageService = new();
+    private readonly SavedFillingStorageService _savedFillingStorageService = new();
     private readonly OpenXmlDocumentService _documentService = new();
     private readonly WordTemplateEditorService _wordEditorService = new();
     private readonly AppUpdateService _updateService = new();
@@ -482,10 +483,14 @@ public partial class MainWindow : Window
                     "В шаблоне ещё нет полей. Откройте его в Word и создайте хотя бы одно поле.");
             }
 
+            var template = _currentTemplate
+                ?? throw new InvalidOperationException("Выберите шаблон для заполнения.");
             var fillWindow = new DocumentFillWindow(
+                template,
                 templatePath,
                 _fields,
-                _documentService)
+                _documentService,
+                _savedFillingStorageService)
             {
                 Owner = this
             };
