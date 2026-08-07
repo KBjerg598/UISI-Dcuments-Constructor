@@ -9,15 +9,19 @@ public partial class TemplateNameWindow : Window
     public TemplateNameWindow(
         string suggestedName,
         IEnumerable<string> existingNames,
-        bool isRename = false)
+        bool isRename = false,
+        bool initialHasTranslation = false)
     {
         InitializeComponent();
 
         _existingNames = existingNames.ToHashSet(StringComparer.CurrentCultureIgnoreCase);
         TemplateNameTextBox.Text = suggestedName;
+        TranslationCheckBox.IsChecked = initialHasTranslation;
 
         if (isRename)
         {
+            Height = 370;
+            TranslationOptionBorder.Visibility = Visibility.Collapsed;
             Title = "Переименование шаблона";
             DialogTitleText.Text = "Переименуйте шаблон";
             DialogDescriptionText.Text =
@@ -27,6 +31,8 @@ public partial class TemplateNameWindow : Window
     }
 
     public string TemplateName { get; private set; } = string.Empty;
+
+    public bool HasTranslation { get; private set; }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
@@ -51,6 +57,7 @@ public partial class TemplateNameWindow : Window
         }
 
         TemplateName = templateName;
+        HasTranslation = TranslationCheckBox.IsChecked == true;
         DialogResult = true;
     }
 

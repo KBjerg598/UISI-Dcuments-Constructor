@@ -25,6 +25,28 @@ public sealed class WordTemplateEditorService : IDisposable
         _document is not null &&
         string.Equals(_documentPath, Path.GetFullPath(path), StringComparison.OrdinalIgnoreCase);
 
+    public void ActivateDocument()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_application is null || _document is null)
+        {
+            throw new InvalidOperationException("Сначала откройте рабочий шаблон в Microsoft Word.");
+        }
+
+        try
+        {
+            _application.Visible = true;
+            _document.Activate();
+        }
+        catch (COMException exception) when (IsDisconnectedFromWord(exception))
+        {
+            ResetDisconnectedSession();
+            throw new InvalidOperationException(
+                "Связь с Microsoft Word была потеряна. Откройте шаблон в Word ещё раз.",
+                exception);
+        }
+    }
+
     public void OpenDocument(string path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -288,4 +310,5 @@ public sealed class WordTemplateEditorService : IDisposable
             unchecked((int)0x800706BE) or // RPC_S_CALL_FAILED
             unchecked((int)0x80010108) or // RPC_E_DISCONNECTED
             unchecked((int)0x800401FD);   // CO_E_OBJNOTCONNECTED
+
 }

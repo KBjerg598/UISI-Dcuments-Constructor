@@ -125,6 +125,18 @@
                         </StackPanel>
                     </Button>
 
+                    <Button x:Name="TranslationNavButton"
+                            Style="{StaticResource NavButtonStyle}"
+                            Click="OpenTranslation_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Width="21"
+                                                     Height="21"
+                                                     Margin="0,0,13,0"
+                                                     Kind="Translate" />
+                            <TextBlock VerticalAlignment="Center" Text="Открыть перевод" />
+                        </StackPanel>
+                    </Button>
+
                     <TextBlock Margin="12,18,0,8"
                                FontSize="11"
                                FontWeight="SemiBold"
@@ -574,7 +586,7 @@
                                                         </Grid>
                                                     </StackPanel>
 
-                                                    <StackPanel Grid.Row="1"
+                                                 <StackPanel Grid.Row="1"
                                                                 Grid.Column="1"
                                                                 Margin="14,10,0,0"
                                                                 HorizontalAlignment="Right"
@@ -759,9 +771,22 @@
                                                             Grid.Column="1"
                                                             Margin="12,7,0,0"
                                                             HorizontalAlignment="Right"
-                                                            VerticalAlignment="Center"
-                                                            Orientation="Horizontal">
-                                                    <Button Width="36"
+                                                             VerticalAlignment="Center"
+                                                             Orientation="Horizontal">
+                                                     <Button x:Name="TranslationModeButton"
+                                                             Width="36"
+                                                             Height="36"
+                                                             Margin="0,0,3,0"
+                                                             Padding="0"
+                                                             Style="{StaticResource QuietButtonStyle}"
+                                                             ToolTip="Включить режим перевода"
+                                                             AutomationProperties.Name="Режим перевода"
+                                                             Click="ToggleTranslationMode_Click">
+                                                         <materialDesign:PackIcon Width="18"
+                                                                                  Height="18"
+                                                                                  Kind="Translate" />
+                                                     </Button>
+                                                     <Button Width="36"
                                                             Height="36"
                                                             Margin="0,0,3,0"
                                                             Padding="0"
@@ -918,12 +943,13 @@
                                                 <ListBox.ItemTemplate>
                                                     <DataTemplate>
                                                         <Grid Height="38">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="Auto" />
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
+                                                             <Grid.ColumnDefinitions>
+                                                                 <ColumnDefinition Width="Auto" />
+                                                                 <ColumnDefinition Width="*" />
+                                                                 <ColumnDefinition Width="Auto" />
+                                                                 <ColumnDefinition Width="Auto" />
+                                                                 <ColumnDefinition Width="Auto" />
+                                                             </Grid.ColumnDefinitions>
                                                             <TextBlock Width="18"
                                                                        VerticalAlignment="Center"
                                                                        FontSize="15"
@@ -952,6 +978,22 @@
                                                                     Margin="0,0,2,0"
                                                                     Padding="0"
                                                                     Style="{StaticResource QuietButtonStyle}"
+                                                                    Foreground="#0A946B"
+                                                                    Tag="{Binding}"
+                                                                    Visibility="{Binding CanAddTranslationPair, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                                    ToolTip="Добавить английскую пару"
+                                                                    AutomationProperties.Name="Добавить английскую пару"
+                                                                    Click="AddTranslationPair_Click">
+                                                                <materialDesign:PackIcon Width="16"
+                                                                                         Height="16"
+                                                                                         Kind="Translate" />
+                                                            </Button>
+                                                            <Button Grid.Column="3"
+                                                                    Width="30"
+                                                                    Height="30"
+                                                                    Margin="0,0,2,0"
+                                                                    Padding="0"
+                                                                    Style="{StaticResource QuietButtonStyle}"
                                                                     Tag="{Binding}"
                                                                     ToolTip="Переименовать поле"
                                                                     AutomationProperties.Name="Переименовать поле"
@@ -960,7 +1002,7 @@
                                                                                          Height="16"
                                                                                          Kind="PencilOutline" />
                                                             </Button>
-                                                            <Button Grid.Column="3"
+                                                            <Button Grid.Column="4"
                                                                     Width="30"
                                                                     Height="30"
                                                                     Padding="0"
@@ -1030,5 +1072,57 @@
                 </Grid>
             </Border>
         </Grid>
+
+        <Border x:Name="TranslationModeToast"
+                Grid.ColumnSpan="2"
+                Panel.ZIndex="1000"
+                Width="520"
+                Margin="0,64,0,0"
+                Padding="14,12"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Top"
+                Background="White"
+                BorderThickness="1"
+                CornerRadius="16"
+                Opacity="0"
+                Visibility="Collapsed">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="24"
+                                  Direction="270"
+                                  Opacity="0.22"
+                                  ShadowDepth="7"
+                                  Color="#2A245F" />
+            </Border.Effect>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="TranslationToastIconBackground"
+                        Width="42"
+                        Height="42"
+                        CornerRadius="13">
+                    <materialDesign:PackIcon x:Name="TranslationToastIcon"
+                                             Width="21"
+                                             Height="21"
+                                             HorizontalAlignment="Center"
+                                             VerticalAlignment="Center"
+                                             Kind="Translate" />
+                </Border>
+                <StackPanel Grid.Column="1"
+                            Margin="12,0,0,0"
+                            VerticalAlignment="Center">
+                    <TextBlock x:Name="TranslationToastText"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextBrush}" />
+                    <TextBlock x:Name="TranslationToastDetails"
+                               Margin="0,3,0,0"
+                               FontSize="11.5"
+                               Foreground="{StaticResource MutedTextBrush}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>

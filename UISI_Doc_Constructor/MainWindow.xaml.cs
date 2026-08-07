@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using UISI_Doc_Constructor.Models;
@@ -20,9 +22,11 @@ public partial class MainWindow : Window
     private readonly TemplateStorageService _storageService = new();
     private readonly SavedFillingStorageService _savedFillingStorageService = new();
     private readonly OpenXmlDocumentService _documentService = new();
+    private readonly TranslationPackageService _translationPackageService;
     private readonly WordTemplateEditorService _wordEditorService = new();
     private readonly AppUpdateService _updateService = new();
     private readonly DispatcherTimer _fieldAutoScrollTimer;
+    private readonly DispatcherTimer _translationToastTimer;
     private readonly ObservableCollection<DocumentTemplate> _templates = [];
     private readonly ObservableCollection<TemplateField> _fields = [];
 
@@ -33,16 +37,26 @@ public partial class MainWindow : Window
     private Point _fieldDragPointerPosition;
     private TemplateField? _draggedField;
     private double _fieldAutoScrollDelta;
+    private bool _startupPackageHandled;
+    private int _translationToastVersion;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _translationPackageService = new TranslationPackageService(_documentService);
 
         _fieldAutoScrollTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
             Interval = TimeSpan.FromMilliseconds(32)
         };
         _fieldAutoScrollTimer.Tick += FieldAutoScrollTimer_Tick;
+
+        _translationToastTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(2600)
+        };
+        _translationToastTimer.Tick += TranslationToastTimer_Tick;
 
         TemplatesList.ItemsSource = _templates;
         FieldsList.ItemsSource = _fields;
@@ -78,9 +92,12 @@ public partial class MainWindow : Window
         }
 
         string suggestedName;
+        bool suggestedTranslationMode;
         try
         {
             suggestedName = _storageService.GetSuggestedTemplateName(fileDialog.FileName);
+            suggestedTranslationMode = _storageService.GetSuggestedTranslationMode(
+                fileDialog.FileName);
         }
         catch (Exception exception)
         {
@@ -90,7 +107,8 @@ public partial class MainWindow : Window
 
         var nameDialog = new TemplateNameWindow(
             suggestedName,
-            _templates.Select(template => template.Name))
+            _templates.Select(template => template.Name),
+            initialHasTranslation: suggestedTranslationMode)
         {
             Owner = this
         };
@@ -106,7 +124,8 @@ public partial class MainWindow : Window
 
             var importedTemplate = _storageService.Import(
                 fileDialog.FileName,
-                nameDialog.TemplateName);
+                nameDialog.TemplateName,
+                nameDialog.HasTranslation);
 
             TemplateSearchBox.Clear();
             ReloadTemplateCatalog(importedTemplate.Id);
@@ -213,6 +232,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ToggleTranslationMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (_currentTemplate is null)
+        {
+            return;
+        }
+
+        RunSafely(() =>
+        {
+            var isEnabled = !_currentTemplate.HasTranslation;
+            _storageService.SetTranslationMode(_currentTemplate.Id, isEnabled);
+            UpdateTranslationModeControls();
+            ReloadFields();
+            var message = isEnabled
+                ? $"Перевод для шаблона «{_currentTemplate.Name}» включён."
+                : $"Перевод для шаблона «{_currentTemplate.Name}» выключен.";
+            SetStatus(message);
+            ShowTranslationModeToast(isEnabled);
+        });
+    }
+
     private void CreateField_Click(object sender, RoutedEventArgs e)
     {
         if (!TryGetCurrentTemplate(out var templatePath))
@@ -226,7 +266,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        var fieldWindow = new FieldEditorWindow(_fields)
+        var fieldWindow = new FieldEditorWindow(
+            _fields,
+            allowTranslationPair: _currentTemplate?.HasTranslation == true)
         {
             Owner = this
         };
@@ -244,8 +286,193 @@ public partial class MainWindow : Window
 
             UpdateFieldListAfterCreation(createdField);
             PersistFieldOrder();
-            SetStatus($"Поле «{createdField.DisplayName}» создано, шаблон сохранён.");
+
+            if (!fieldWindow.CreateTranslationPair)
+            {
+                SetStatus($"Поле «{createdField.DisplayName}» создано, шаблон сохранён.");
+                return;
+            }
+
+            if (!TryCreateTranslationPair(
+                    createdField,
+                    out var targetField,
+                    out var pairMode))
+            {
+                SetStatus(
+                    $"Украинское поле «{createdField.DisplayName}» создано без английской пары.");
+                return;
+            }
+
+            CompleteTranslationPair(createdField, targetField!, pairMode);
         });
+    }
+
+    private void AddTranslationPair_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: TemplateField sourceField } ||
+            !TryGetCurrentTemplate(out var templatePath))
+        {
+            return;
+        }
+
+        RunSafely(() =>
+        {
+            if (_currentTemplate?.HasTranslation != true)
+            {
+                throw new InvalidOperationException(
+                    "Сначала включите для шаблона режим украинского и английского перевода.");
+            }
+
+            if (!_wordEditorService.IsDocumentOpen(templatePath))
+            {
+                _wordEditorService.OpenDocument(templatePath);
+            }
+
+            if (TryCreateTranslationPair(
+                    sourceField,
+                    out var targetField,
+                    out var pairMode))
+            {
+                CompleteTranslationPair(sourceField, targetField!, pairMode);
+            }
+        });
+
+        e.Handled = true;
+    }
+
+    private bool TryCreateTranslationPair(
+        TemplateField sourceField,
+        out TemplateField? targetField,
+        out TranslationPairMode pairMode)
+    {
+        var pairWindow = new TranslationPairWindow(
+            sourceField.DisplayName,
+            CreateUniqueEnglishFieldName(sourceField.DisplayName),
+            _wordEditorService.ActivateDocument,
+            targetName =>
+            {
+                if (_fields.Any(field => string.Equals(
+                        field.DisplayName,
+                        targetName,
+                        StringComparison.CurrentCultureIgnoreCase)))
+                {
+                    throw new InvalidOperationException(
+                        "Поле с таким названием уже существует. Укажите другое название английского поля.");
+                }
+
+                return _wordEditorService.CreateFieldFromSelection(targetName);
+            })
+        {
+            Owner = this
+        };
+
+        var created = pairWindow.ShowDialog() == true &&
+                      pairWindow.CreatedTargetField is not null;
+        targetField = pairWindow.CreatedTargetField;
+        pairMode = pairWindow.SelectedPairMode;
+        return created;
+    }
+
+    private void CompleteTranslationPair(
+        TemplateField sourceField,
+        TemplateField targetField,
+        TranslationPairMode pairMode)
+    {
+        UpdateFieldListAfterCreation(targetField);
+        PersistFieldOrder();
+        var currentTemplate = _currentTemplate
+            ?? throw new InvalidOperationException("Текущий шаблон не выбран.");
+        _storageService.SaveTranslationPair(
+            currentTemplate.Id,
+            sourceField.Tag,
+            targetField.Tag,
+            pairMode);
+        ApplyTranslationMetadataToCurrentFields();
+        SelectField(targetField.Tag);
+        Activate();
+        SetStatus(pairMode == TranslationPairMode.SameValue
+            ? $"Создана связанная пара «{sourceField.DisplayName}»: одно значение заполнит обе стороны."
+            : $"Создана пара: «{sourceField.DisplayName}» → «{targetField.DisplayName}».");
+    }
+
+    private string CreateUniqueEnglishFieldName(string sourceFieldName)
+    {
+        var baseName = $"{sourceFieldName} — EN";
+        var name = baseName;
+        var suffix = 2;
+        while (_fields.Any(field => string.Equals(
+                   field.DisplayName,
+                   name,
+                   StringComparison.CurrentCultureIgnoreCase)))
+        {
+            name = $"{baseName} {suffix++}";
+        }
+
+        return name;
+    }
+
+    private void UpdateTranslationModeControls()
+    {
+        var hasTemplate = _currentTemplate is not null;
+        var isEnabled = _currentTemplate?.HasTranslation == true;
+        TranslationModeButton.IsEnabled = hasTemplate;
+        TranslationModeButton.ToolTip = isEnabled
+            ? "Выключить режим украинского и английского перевода"
+            : "Включить режим украинского и английского перевода";
+        AutomationProperties.SetName(
+            TranslationModeButton,
+            isEnabled ? "Выключить режим перевода" : "Включить режим перевода");
+        TranslationModeButton.Foreground = (Brush)FindResource(
+            isEnabled ? "SuccessBrush" : "PrimaryBrush");
+    }
+
+    private void ShowTranslationModeToast(bool isEnabled)
+    {
+        _translationToastTimer.Stop();
+        _translationToastVersion++;
+
+        TranslationToastText.Text = isEnabled
+            ? "Перевод у шаблона включён"
+            : "Перевод у шаблона выключен";
+        TranslationToastDetails.Text = isEnabled
+            ? "Можно создавать и связывать украинские и английские поля."
+            : "Сохранённые пары полей не удалены и будут доступны после повторного включения.";
+
+        var accentBrush = (Brush)FindResource(
+            isEnabled ? "SuccessBrush" : "WarningBrush");
+        TranslationToastIcon.Foreground = accentBrush;
+        TranslationToastIconBackground.Background = (Brush)FindResource(
+            isEnabled ? "SuccessSoftBrush" : "WarningSoftBrush");
+        TranslationModeToast.BorderBrush = accentBrush;
+
+        TranslationModeToast.BeginAnimation(OpacityProperty, null);
+        TranslationModeToast.Visibility = Visibility.Visible;
+        TranslationModeToast.Opacity = 0;
+        TranslationModeToast.BeginAnimation(
+            OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            });
+        _translationToastTimer.Start();
+    }
+
+    private void TranslationToastTimer_Tick(object? sender, EventArgs e)
+    {
+        _translationToastTimer.Stop();
+        var toastVersion = _translationToastVersion;
+        var animation = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(240))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
+        };
+        animation.Completed += (_, _) =>
+        {
+            if (toastVersion == _translationToastVersion)
+            {
+                TranslationModeToast.Visibility = Visibility.Collapsed;
+            }
+        };
+        TranslationModeToast.BeginAnimation(OpacityProperty, animation);
     }
 
     private void RefreshFields_Click(object sender, RoutedEventArgs e)
@@ -490,7 +717,9 @@ public partial class MainWindow : Window
                 templatePath,
                 _fields,
                 _documentService,
-                _savedFillingStorageService)
+                _savedFillingStorageService,
+                _storageService,
+                _translationPackageService)
             {
                 Owner = this
             };
@@ -498,6 +727,45 @@ public partial class MainWindow : Window
             if (fillWindow.ShowDialog() == true && fillWindow.ResultPath is not null)
             {
                 SetStatus($"Готовый документ сохранён: {fillWindow.ResultPath}");
+            }
+        });
+    }
+
+    private void OpenTranslation_Click(object sender, RoutedEventArgs e)
+    {
+        SetActiveNavigation(TranslationNavButton);
+
+        var fileDialog = new OpenFileDialog
+        {
+            Title = "Откройте пакет перевода",
+            Filter = "Перевод UISI (*.uisi-translation)|*.uisi-translation",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (fileDialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        OpenTranslationPackage(fileDialog.FileName);
+    }
+
+    private void OpenTranslationPackage(string packagePath)
+    {
+        RunSafely(() =>
+        {
+            using var session = _translationPackageService.OpenPackage(packagePath);
+            var translationWindow = new TranslationFillWindow(
+                _translationPackageService,
+                session)
+            {
+                Owner = this
+            };
+
+            if (translationWindow.ShowDialog() == true &&
+                translationWindow.ResultPath is not null)
+            {
+                SetStatus($"Перевод завершён: {translationWindow.ResultPath}");
             }
         });
     }
@@ -527,6 +795,23 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        if (!_startupPackageHandled)
+        {
+            _startupPackageHandled = true;
+            var packagePath = Environment.GetCommandLineArgs()
+                .Skip(1)
+                .FirstOrDefault(path =>
+                    string.Equals(
+                        Path.GetExtension(path),
+                        TranslationPackageService.PackageExtension,
+                        StringComparison.OrdinalIgnoreCase));
+            if (packagePath is not null)
+            {
+                SetActiveNavigation(TranslationNavButton);
+                OpenTranslationPackage(packagePath);
+            }
+        }
+
         if (!_updateService.IsInstalled || !_updateService.ShouldCheckAutomatically())
         {
             return;
@@ -544,6 +829,7 @@ public partial class MainWindow : Window
 
     private void ShowUpdates_Click(object sender, RoutedEventArgs e)
     {
+        SetActiveNavigation(UpdatesNavButton);
         var updateWindow = new UpdateWindow(_updateService)
         {
             Owner = this
@@ -748,7 +1034,9 @@ public partial class MainWindow : Window
                      OverviewNavButton,
                      TemplatesNavButton,
                      ImportNavButton,
-                     FillNavButton
+                     FillNavButton,
+                     TranslationNavButton,
+                     UpdatesNavButton
                  })
         {
             button.Style = ReferenceEquals(button, activeButton)
@@ -838,6 +1126,7 @@ public partial class MainWindow : Window
         OpenWordButton.IsEnabled = true;
         CreateFieldButton.IsEnabled = true;
         RefreshFieldsButton.IsEnabled = true;
+        UpdateTranslationModeControls();
 
         ReloadFields();
     }
@@ -853,6 +1142,7 @@ public partial class MainWindow : Window
         OpenWordButton.IsEnabled = false;
         CreateFieldButton.IsEnabled = false;
         RefreshFieldsButton.IsEnabled = false;
+        TranslationModeButton.IsEnabled = false;
         FillDocumentButton.IsEnabled = false;
     }
 
@@ -871,11 +1161,10 @@ public partial class MainWindow : Window
         catch (Exception exception) when (
             exception is IOException or FileFormatException or UnauthorizedAccessException)
         {
-            _fields.Clear();
             UpdateFieldsSummary();
             SetStatus(
                 $"Не удалось прочитать шаблон «{_currentTemplate.Name}». " +
-                "Закройте его в Word или импортируйте исправную копию.");
+                "Показывается последний полученный список полей; повторите обновление после сохранения в Word.");
             return;
         }
 
@@ -898,6 +1187,8 @@ public partial class MainWindow : Window
             .Select(item => item.Field)
             .ToList();
 
+        orderedFields = ApplyTranslationMetadata(orderedFields);
+
         _fields.Clear();
         foreach (var field in orderedFields)
         {
@@ -905,6 +1196,71 @@ public partial class MainWindow : Window
         }
 
         PersistFieldOrder();
+        var migratedPairs = _storageService.MigrateLegacyTranslationPairs(
+            _currentTemplate.Id,
+            _fields);
+        if (migratedPairs > 0)
+        {
+            ApplyTranslationMetadataToCurrentFields();
+        }
+        else
+        {
+            UpdateFieldsSummary();
+        }
+    }
+
+    private List<TemplateField> ApplyTranslationMetadata(
+        IEnumerable<TemplateField> fields)
+    {
+        if (_currentTemplate is null)
+        {
+            return fields.ToList();
+        }
+
+        var translationSettingsByTag = _currentTemplate.TranslationFields
+            .ToDictionary(item => item.Tag, StringComparer.Ordinal);
+        var pairedSourceTags = _currentTemplate.TranslationFields
+            .Where(item =>
+                item.Role == TranslationFieldRole.Target &&
+                item.SourceFieldTag is not null)
+            .Select(item => item.SourceFieldTag!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return fields.Select(field =>
+        {
+            translationSettingsByTag.TryGetValue(field.Tag, out var settings);
+            return new TemplateField
+            {
+                Tag = field.Tag,
+                DisplayName = field.DisplayName,
+                Occurrences = field.Occurrences,
+                TranslationRole = settings?.Role ?? TranslationFieldRole.Unassigned,
+                SourceFieldTag = settings?.SourceFieldTag,
+                PairId = settings?.PairId,
+                PairMode = settings?.PairMode ?? TranslationPairMode.Translation,
+                CanAddTranslationPair = _currentTemplate.HasTranslation &&
+                                        settings?.Role != TranslationFieldRole.Target &&
+                                        settings?.Role != TranslationFieldRole.Shared &&
+                                        !pairedSourceTags.Contains(field.Tag)
+            };
+        }).ToList();
+    }
+
+    private void ApplyTranslationMetadataToCurrentFields()
+    {
+        var selectedTag = (FieldsList.SelectedItem as TemplateField)?.Tag;
+        var updatedFields = ApplyTranslationMetadata(_fields);
+        _fields.Clear();
+        foreach (var field in updatedFields)
+        {
+            _fields.Add(field);
+        }
+
+        if (selectedTag is not null)
+        {
+            SelectField(selectedTag);
+        }
+
         UpdateFieldsSummary();
     }
 
@@ -913,8 +1269,21 @@ public partial class MainWindow : Window
         var existingField = _fields.FirstOrDefault(field => field.Tag == createdField.Tag);
         if (existingField is null)
         {
-            _fields.Add(createdField);
-            FieldsList.SelectedItem = createdField;
+            var addedField = new TemplateField
+            {
+                Tag = createdField.Tag,
+                DisplayName = createdField.DisplayName,
+                Occurrences = createdField.Occurrences,
+                TranslationRole = createdField.TranslationRole,
+                SourceFieldTag = createdField.SourceFieldTag,
+                PairId = createdField.PairId,
+                PairMode = createdField.PairMode,
+                CanAddTranslationPair = _currentTemplate?.HasTranslation == true &&
+                                        createdField.TranslationRole != TranslationFieldRole.Target &&
+                                        createdField.TranslationRole != TranslationFieldRole.Shared
+            };
+            _fields.Add(addedField);
+            FieldsList.SelectedItem = addedField;
         }
         else
         {
@@ -923,7 +1292,12 @@ public partial class MainWindow : Window
             {
                 Tag = existingField.Tag,
                 DisplayName = existingField.DisplayName,
-                Occurrences = existingField.Occurrences + 1
+                Occurrences = existingField.Occurrences + 1,
+                TranslationRole = existingField.TranslationRole,
+                SourceFieldTag = existingField.SourceFieldTag,
+                PairId = existingField.PairId,
+                PairMode = existingField.PairMode,
+                CanAddTranslationPair = existingField.CanAddTranslationPair
             };
 
             _fields[index] = updatedField;
@@ -1272,6 +1646,7 @@ public partial class MainWindow : Window
     private void Window_Closed(object? sender, EventArgs e)
     {
         StopFieldAutoScroll();
+        _translationToastTimer.Stop();
         _updateService.StatusChanged -= UpdateUpdateBadge;
         _wordEditorService.Dispose();
     }

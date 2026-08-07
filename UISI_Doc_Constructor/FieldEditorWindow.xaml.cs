@@ -7,7 +7,9 @@ public partial class FieldEditorWindow : Window
 {
     private readonly HashSet<string> _existingNames;
 
-    public FieldEditorWindow(IEnumerable<TemplateField> existingFields)
+    public FieldEditorWindow(
+        IEnumerable<TemplateField> existingFields,
+        bool allowTranslationPair = false)
     {
         InitializeComponent();
         var fields = existingFields.ToList();
@@ -15,6 +17,9 @@ public partial class FieldEditorWindow : Window
             .Select(field => field.DisplayName)
             .ToHashSet(StringComparer.CurrentCultureIgnoreCase);
         ExistingFieldsComboBox.ItemsSource = fields;
+        TranslationPairOption.Visibility = allowTranslationPair
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         Loaded += (_, _) => FieldNameTextBox.Focus();
     }
@@ -22,6 +27,8 @@ public partial class FieldEditorWindow : Window
     public string FieldDisplayName { get; private set; } = string.Empty;
 
     public string? ExistingFieldTag { get; private set; }
+
+    public bool CreateTranslationPair { get; private set; }
 
     private void FieldMode_Changed(object sender, RoutedEventArgs e)
     {
@@ -32,6 +39,7 @@ public partial class FieldEditorWindow : Window
 
         var useExisting = ExistingFieldRadioButton.IsChecked == true;
         FieldNameTextBox.IsEnabled = !useExisting;
+        TranslationPairCheckBox.IsEnabled = !useExisting;
         ExistingFieldsComboBox.IsEnabled = useExisting;
         ValidationText.Text = string.Empty;
     }
@@ -66,6 +74,7 @@ public partial class FieldEditorWindow : Window
 
             FieldDisplayName = selectedField.DisplayName;
             ExistingFieldTag = selectedField.Tag;
+            CreateTranslationPair = false;
         }
         else
         {
@@ -85,6 +94,8 @@ public partial class FieldEditorWindow : Window
 
             FieldDisplayName = displayName;
             ExistingFieldTag = null;
+            CreateTranslationPair = TranslationPairOption.Visibility == Visibility.Visible &&
+                                    TranslationPairCheckBox.IsChecked == true;
         }
 
         DialogResult = true;

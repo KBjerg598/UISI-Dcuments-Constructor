@@ -14,6 +14,14 @@ public sealed class DocumentTemplate
 
     public List<string> FieldOrder { get; set; } = [];
 
+    public bool HasTranslation { get; set; }
+
+    public List<TranslationFieldSettings> TranslationFields { get; set; } = [];
+
+    public string TranslationModeText => HasTranslation
+        ? "Украинский + английский"
+        : "Обычный шаблон";
+
     public string FieldCountText => FieldOrder.Count switch
     {
         0 => "Поля не добавлены",

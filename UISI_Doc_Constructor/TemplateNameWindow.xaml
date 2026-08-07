@@ -5,7 +5,7 @@
         Title="Название шаблона"
         Style="{StaticResource AppWindowStyle}"
         Width="540"
-        Height="370"
+        Height="500"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Loaded="Window_Loaded">
@@ -69,6 +69,35 @@
                                        Foreground="#66618E"
                                        Text="Исходный DOCX останется без изменений." />
                         </StackPanel>
+                    </Border>
+                    <Border x:Name="TranslationOptionBorder"
+                            Margin="0,12,0,0"
+                            Padding="14,12"
+                            Background="#F3FBF8"
+                            BorderBrush="#D5F1E8"
+                            BorderThickness="1"
+                            CornerRadius="11">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <materialDesign:PackIcon Width="22"
+                                                     Height="22"
+                                                     Margin="0,1,11,0"
+                                                     Foreground="#0A946B"
+                                                     Kind="Translate" />
+                            <StackPanel Grid.Column="1">
+                                <CheckBox x:Name="TranslationCheckBox"
+                                          FontWeight="SemiBold"
+                                          Content="В документе есть украинская и английская версии" />
+                                <TextBlock Margin="24,5,0,0"
+                                           FontSize="10.5"
+                                           Foreground="#4F7168"
+                                           Text="Включить создание связанных полей для автора и переводчика."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
                     </Border>
                 </StackPanel>
 

@@ -5,17 +5,20 @@
         Title="Создание поля"
         Style="{StaticResource AppWindowStyle}"
         Width="580"
-        Height="540"
-        ResizeMode="NoResize"
+        Height="570"
+        MinWidth="540"
+        MinHeight="540"
+        ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner">
-    <Grid Margin="18">
-        <materialDesign:Card Style="{StaticResource DialogCardStyle}">
+    <Grid Margin="12">
+        <materialDesign:Card Padding="18"
+                             Style="{StaticResource DialogCardStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="20" />
+                    <RowDefinition Height="14" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="12" />
+                    <RowDefinition Height="10" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
@@ -26,16 +29,16 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Width="54" Height="54" Background="#ECE9FF" CornerRadius="17">
-                        <materialDesign:PackIcon Width="27"
-                                                 Height="27"
+                    <Border Width="48" Height="48" Background="#ECE9FF" CornerRadius="15">
+                        <materialDesign:PackIcon Width="24"
+                                                 Height="24"
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"
                                                  Foreground="#6559E8"
                                                  Kind="PencilOutline" />
                     </Border>
                     <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
-                        <TextBlock FontSize="22"
+                        <TextBlock FontSize="21"
                                    FontWeight="SemiBold"
                                    Text="Создать поле" />
                         <TextBlock Margin="0,4,0,0"
@@ -46,7 +49,7 @@
                 </Grid>
 
                 <Border Grid.Row="2"
-                        Padding="15"
+                        Padding="12"
                         Background="#F8F7FF"
                         BorderBrush="#E6E2FF"
                         BorderThickness="1"
@@ -58,19 +61,38 @@
                                      Checked="FieldMode_Changed"
                                      Content="Создать новое поле" />
                         <TextBox x:Name="FieldNameTextBox"
-                                 Height="58"
-                                 Margin="0,16,0,0"
+                                 Height="54"
+                                 Margin="0,12,0,0"
                                  MaxLength="100"
                                  VerticalContentAlignment="Center"
                                  Style="{StaticResource MaterialDesignOutlinedTextBox}"
                                  materialDesign:HintAssist.Hint="Название поля"
                                  materialDesign:TextFieldAssist.HasClearButton="True"
                                  TextChanged="FieldNameTextBox_TextChanged" />
+                        <Border x:Name="TranslationPairOption"
+                                Margin="0,10,0,0"
+                                Padding="10,8"
+                                Background="#EEF9F6"
+                                BorderBrush="#D7F0E9"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Visibility="Collapsed">
+                            <StackPanel>
+                                <CheckBox x:Name="TranslationPairCheckBox"
+                                          FontWeight="SemiBold"
+                                          Content="Сразу создать английское поле для переводчика" />
+                                <TextBlock Margin="24,5,0,0"
+                                           FontSize="10.5"
+                                           Foreground="#4F7168"
+                                           Text="После украинского поля программа попросит выделить соответствующий текст справа."
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 
                 <Border Grid.Row="4"
-                        Padding="15"
+                        Padding="12"
                         Background="#FCFCFE"
                         BorderBrush="{StaticResource BorderBrush}"
                         BorderThickness="1"
@@ -81,8 +103,8 @@
                                      Checked="FieldMode_Changed"
                                      Content="Повторить существующее поле" />
                         <ComboBox x:Name="ExistingFieldsComboBox"
-                                  Height="58"
-                                  Margin="0,16,0,0"
+                                  Height="54"
+                                  Margin="0,12,0,0"
                                   IsEnabled="False"
                                   DisplayMemberPath="DisplayName"
                                   Style="{StaticResource MaterialDesignOutlinedComboBox}"
@@ -100,14 +122,17 @@
                            TextWrapping="Wrap" />
 
                 <StackPanel Grid.Row="6"
+                            Margin="0,4,0,0"
                             HorizontalAlignment="Right"
                             Orientation="Horizontal">
                     <Button Width="108"
+                            Height="42"
                             Margin="0,0,10,0"
                             Style="{StaticResource QuietButtonStyle}"
                             Click="Cancel_Click"
                             Content="Отмена" />
                     <Button Width="128"
+                            Height="42"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Click="Create_Click">
                         <StackPanel Orientation="Horizontal">

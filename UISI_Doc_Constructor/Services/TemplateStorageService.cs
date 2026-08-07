@@ -1,5 +1,6 @@
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using UISI_Doc_Constructor.Models;
@@ -56,7 +57,10 @@ public sealed class TemplateStorageService
             .OrderBy(template => template.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
 
-    public DocumentTemplate Import(string sourcePath, string templateName)
+    public DocumentTemplate Import(
+        string sourcePath,
+        string templateName,
+        bool? hasTranslation = null)
     {
         using var package = IsTemplatePackage(sourcePath)
             ? ReadPackage(sourcePath)
@@ -84,12 +88,19 @@ public sealed class TemplateStorageService
             FileName = $"{Guid.NewGuid():N}.docx",
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow,
+            HasTranslation = hasTranslation ??
+                             (package is not null &&
+                              (package.Manifest.HasTranslation ||
+                               package.Manifest.TranslationFields.Count > 0)),
             FieldOrder = package?.Manifest.FieldOrder
                 .Where(tag => !string.IsNullOrWhiteSpace(tag))
                 .Distinct(StringComparer.Ordinal)
                 .Take(5000)
                 .ToList()
-                ?? []
+                ?? [],
+            TranslationFields = NormalizeTranslationFields(
+                package?.Manifest.TranslationFields ?? [],
+                package?.Manifest.FieldOrder ?? [])
         };
 
         var destinationPath = GetTemplatePath(template);
@@ -139,6 +150,19 @@ public sealed class TemplateStorageService
         return NormalizeTemplateName(package.Manifest.Name);
     }
 
+    public bool GetSuggestedTranslationMode(string sourcePath)
+    {
+        if (!IsTemplatePackage(sourcePath))
+        {
+            ValidateSourceDocument(sourcePath);
+            return false;
+        }
+
+        using var package = ReadPackage(sourcePath);
+        return package.Manifest.HasTranslation ||
+               package.Manifest.TranslationFields.Count > 0;
+    }
+
     public void Export(Guid templateId, string destinationPath)
     {
         var template = _templates.FirstOrDefault(item => item.Id == templateId)
@@ -183,7 +207,11 @@ public sealed class TemplateStorageService
                 {
                     FormatVersion = CurrentPackageVersion,
                     Name = template.Name,
-                    FieldOrder = template.FieldOrder.ToList()
+                    HasTranslation = template.HasTranslation,
+                    FieldOrder = template.FieldOrder.ToList(),
+                    TranslationFields = template.TranslationFields
+                        .Select(CloneTranslationField)
+                        .ToList()
                 };
 
                 var manifestEntry = archive.CreateEntry("manifest.json", CompressionLevel.Optimal);
@@ -300,14 +328,242 @@ public sealed class TemplateStorageService
             .Distinct(StringComparer.Ordinal)
             .ToList();
 
-        if (template.FieldOrder.SequenceEqual(normalizedOrder, StringComparer.Ordinal))
+        var normalizedTranslationFields = NormalizeTranslationFields(
+            template.TranslationFields,
+            normalizedOrder);
+        var fieldOrderChanged = !template.FieldOrder.SequenceEqual(
+            normalizedOrder,
+            StringComparer.Ordinal);
+        var translationFieldsChanged = !TranslationFieldsEqual(
+            template.TranslationFields,
+            normalizedTranslationFields);
+
+        if (!fieldOrderChanged && !translationFieldsChanged)
         {
             return;
         }
 
         template.FieldOrder = normalizedOrder;
+        template.TranslationFields = normalizedTranslationFields;
         template.UpdatedAtUtc = DateTime.UtcNow;
         SaveCatalog();
+    }
+
+    public void SaveTranslationConfiguration(
+        Guid templateId,
+        IEnumerable<TranslationFieldSettings> settings)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Текущий шаблон отсутствует в каталоге.");
+        var normalized = NormalizeTranslationFields(settings, template.FieldOrder);
+
+        if (normalized.Count != template.FieldOrder.Count ||
+            normalized.Any(item => item.Role == TranslationFieldRole.Unassigned))
+        {
+            throw new InvalidOperationException(
+                "Назначьте языковую роль каждому полю текущего шаблона.");
+        }
+
+        if (!normalized.Any(item => item.Role == TranslationFieldRole.Source) ||
+            !normalized.Any(item => item.Role == TranslationFieldRole.Target))
+        {
+            throw new InvalidOperationException(
+                "Для перевода нужны хотя бы одно украинское и одно английское поле.");
+        }
+
+        var sourceTags = normalized
+            .Where(item => item.Role == TranslationFieldRole.Source)
+            .Select(item => item.Tag)
+            .ToHashSet(StringComparer.Ordinal);
+        if (normalized.Any(item =>
+                item.Role == TranslationFieldRole.Target &&
+                item.SourceFieldTag is not null &&
+                !sourceTags.Contains(item.SourceFieldTag)))
+        {
+            throw new InvalidOperationException(
+                "Английское поле можно связать только с полем украинского оригинала.");
+        }
+
+        var repeatedSource = normalized
+            .Where(item =>
+                item.Role == TranslationFieldRole.Target &&
+                item.SourceFieldTag is not null)
+            .GroupBy(item => item.SourceFieldTag!, StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > 1);
+        if (repeatedSource is not null)
+        {
+            throw new InvalidOperationException(
+                "Одно украинское поле можно связать только с одним английским полем.");
+        }
+
+        if (normalized.Any(item =>
+                item.Role == TranslationFieldRole.Target &&
+                item.PairMode == TranslationPairMode.SameValue &&
+                item.SourceFieldTag is null))
+        {
+            throw new InvalidOperationException(
+                "Для одинакового значения выберите родственное украинское поле.");
+        }
+
+        template.TranslationFields = normalized;
+        template.HasTranslation = true;
+        template.UpdatedAtUtc = DateTime.UtcNow;
+        SaveCatalog();
+    }
+
+    public void SaveTranslationPair(
+        Guid templateId,
+        string sourceTag,
+        string targetTag,
+        TranslationPairMode pairMode = TranslationPairMode.Translation)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Текущий шаблон отсутствует в каталоге.");
+        if (!template.HasTranslation)
+        {
+            throw new InvalidOperationException("Для этого шаблона не включён режим перевода.");
+        }
+
+        var fieldTags = template.FieldOrder.ToHashSet(StringComparer.Ordinal);
+        if (string.Equals(sourceTag, targetTag, StringComparison.Ordinal) ||
+            !fieldTags.Contains(sourceTag) ||
+            !fieldTags.Contains(targetTag))
+        {
+            throw new InvalidOperationException("Не удалось связать поля: одно из них отсутствует в шаблоне.");
+        }
+
+        var settings = template.TranslationFields
+            .Where(item =>
+                !string.Equals(item.Tag, sourceTag, StringComparison.Ordinal) &&
+                !string.Equals(item.Tag, targetTag, StringComparison.Ordinal))
+            .Select(CloneTranslationField)
+            .ToList();
+        foreach (var item in settings.Where(item =>
+                     string.Equals(item.SourceFieldTag, sourceTag, StringComparison.Ordinal) ||
+                     string.Equals(item.SourceFieldTag, targetTag, StringComparison.Ordinal)))
+        {
+            item.SourceFieldTag = null;
+            item.PairId = null;
+            item.PairMode = TranslationPairMode.Translation;
+        }
+
+        var pairId = Guid.NewGuid();
+
+        settings.Add(new TranslationFieldSettings
+        {
+            Tag = sourceTag,
+            Role = TranslationFieldRole.Source,
+            PairId = pairId,
+            PairMode = pairMode
+        });
+        settings.Add(new TranslationFieldSettings
+        {
+            Tag = targetTag,
+            Role = TranslationFieldRole.Target,
+            SourceFieldTag = sourceTag,
+            PairId = pairId,
+            PairMode = pairMode
+        });
+
+        template.TranslationFields = NormalizeTranslationFields(settings, template.FieldOrder);
+        template.UpdatedAtUtc = DateTime.UtcNow;
+        SaveCatalog();
+    }
+
+    public void SetTranslationMode(Guid templateId, bool isEnabled)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Текущий шаблон отсутствует в каталоге.");
+        if (template.HasTranslation == isEnabled)
+        {
+            return;
+        }
+
+        template.HasTranslation = isEnabled;
+        template.UpdatedAtUtc = DateTime.UtcNow;
+        SaveCatalog();
+    }
+
+    public int MigrateLegacyTranslationPairs(
+        Guid templateId,
+        IEnumerable<TemplateField> fields)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == templateId)
+            ?? throw new InvalidOperationException("Текущий шаблон отсутствует в каталоге.");
+        if (!template.HasTranslation)
+        {
+            return 0;
+        }
+
+        var fieldList = fields.ToList();
+        var fieldsByName = fieldList
+            .GroupBy(field => field.DisplayName.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.CurrentCultureIgnoreCase);
+        var settingsByTag = template.TranslationFields
+            .Select(CloneTranslationField)
+            .ToDictionary(item => item.Tag, StringComparer.Ordinal);
+        foreach (var field in fieldList)
+        {
+            settingsByTag.TryAdd(field.Tag, new TranslationFieldSettings
+            {
+                Tag = field.Tag,
+                Role = TranslationFieldRole.Unassigned
+            });
+        }
+
+        var migratedCount = 0;
+        foreach (var targetField in fieldList)
+        {
+            if (!TryGetOriginalFieldName(targetField.DisplayName, out var originalName) ||
+                !fieldsByName.TryGetValue(originalName, out var sourceField) ||
+                string.Equals(sourceField.Tag, targetField.Tag, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var source = settingsByTag[sourceField.Tag];
+            var target = settingsByTag[targetField.Tag];
+            if (target.SourceFieldTag is not null)
+            {
+                continue;
+            }
+
+            var isSameValue = source.Role == TranslationFieldRole.Shared &&
+                              target.Role == TranslationFieldRole.Shared;
+            var isUnassigned = source.Role == TranslationFieldRole.Unassigned &&
+                               target.Role == TranslationFieldRole.Unassigned;
+            var isUnlinkedTranslation = source.Role == TranslationFieldRole.Source &&
+                                        target.Role == TranslationFieldRole.Target;
+            if (!isSameValue && !isUnassigned && !isUnlinkedTranslation)
+            {
+                continue;
+            }
+
+            var pairId = CreateStablePairId(source.Tag, target.Tag);
+            var pairMode = isSameValue
+                ? TranslationPairMode.SameValue
+                : TranslationPairMode.Translation;
+            source.Role = TranslationFieldRole.Source;
+            source.PairId = pairId;
+            source.PairMode = pairMode;
+            target.Role = TranslationFieldRole.Target;
+            target.SourceFieldTag = source.Tag;
+            target.PairId = pairId;
+            target.PairMode = pairMode;
+            migratedCount++;
+        }
+
+        if (migratedCount == 0)
+        {
+            return 0;
+        }
+
+        template.TranslationFields = NormalizeTranslationFields(
+            settingsByTag.Values,
+            template.FieldOrder);
+        template.UpdatedAtUtc = DateTime.UtcNow;
+        SaveCatalog();
+        return migratedCount;
     }
 
     private List<DocumentTemplate> LoadCatalog()
@@ -324,6 +580,14 @@ public sealed class TemplateStorageService
                                 json,
                                 _jsonOptions)
                             ?? [];
+
+            foreach (var template in templates)
+            {
+                template.FieldOrder ??= [];
+                template.TranslationFields = NormalizeTranslationFields(
+                    template.TranslationFields ?? [],
+                    template.FieldOrder);
+            }
 
             var validTemplates = templates
                 .Where(template =>
@@ -572,6 +836,9 @@ public sealed class TemplateStorageService
             }
 
             manifest.FieldOrder ??= [];
+            manifest.TranslationFields = NormalizeTranslationFields(
+                manifest.TranslationFields ?? [],
+                manifest.FieldOrder);
             return new PackageArchive(archive, manifest, documentEntry);
         }
         catch (InvalidDataException)
@@ -616,13 +883,144 @@ public sealed class TemplateStorageService
             : normalizedName[..100];
     }
 
+    private static List<TranslationFieldSettings> NormalizeTranslationFields(
+        IEnumerable<TranslationFieldSettings> settings,
+        IEnumerable<string> fieldOrder)
+    {
+        var orderedTags = fieldOrder
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.Ordinal)
+            .Take(5000)
+            .ToList();
+        var allowedTags = orderedTags.ToHashSet(StringComparer.Ordinal);
+        var settingsByTag = settings
+            .Where(item =>
+                !string.IsNullOrWhiteSpace(item.Tag) &&
+                allowedTags.Contains(item.Tag))
+            .GroupBy(item => item.Tag, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        var normalized = new List<TranslationFieldSettings>();
+        foreach (var tag in orderedTags)
+        {
+            if (!settingsByTag.TryGetValue(tag, out var item))
+            {
+                continue;
+            }
+
+            var role = Enum.IsDefined(item.Role)
+                ? item.Role
+                : TranslationFieldRole.Unassigned;
+            var sourceFieldTag = role == TranslationFieldRole.Target &&
+                                 item.SourceFieldTag is not null &&
+                                 allowedTags.Contains(item.SourceFieldTag) &&
+                                 !string.Equals(item.SourceFieldTag, tag, StringComparison.Ordinal)
+                ? item.SourceFieldTag
+                : null;
+            var pairId = item.PairId is { } candidatePairId &&
+                         candidatePairId != Guid.Empty
+                ? (Guid?)candidatePairId
+                : null;
+            var pairMode = Enum.IsDefined(item.PairMode)
+                ? item.PairMode
+                : TranslationPairMode.Translation;
+
+            normalized.Add(new TranslationFieldSettings
+            {
+                Tag = tag,
+                Role = role,
+                SourceFieldTag = sourceFieldTag,
+                PairId = role == TranslationFieldRole.Target ? pairId : null,
+                PairMode = role == TranslationFieldRole.Target
+                    ? pairMode
+                    : TranslationPairMode.Translation
+            });
+        }
+
+        var normalizedByTag = normalized.ToDictionary(item => item.Tag, StringComparer.Ordinal);
+        foreach (var target in normalized.Where(item =>
+                     item.Role == TranslationFieldRole.Target &&
+                     item.SourceFieldTag is not null))
+        {
+            if (!normalizedByTag.TryGetValue(target.SourceFieldTag!, out var source) ||
+                source.Role != TranslationFieldRole.Source)
+            {
+                continue;
+            }
+
+            var pairId = target.PairId ??
+                         source.PairId ??
+                         CreateStablePairId(source.Tag, target.Tag);
+            target.PairId = pairId;
+            source.PairId = pairId;
+            source.PairMode = target.PairMode;
+        }
+
+        return normalized;
+    }
+
+    private static TranslationFieldSettings CloneTranslationField(
+        TranslationFieldSettings settings) =>
+        new()
+        {
+            Tag = settings.Tag,
+            Role = settings.Role,
+            SourceFieldTag = settings.SourceFieldTag,
+            PairId = settings.PairId,
+            PairMode = settings.PairMode
+        };
+
+    private static bool TranslationFieldsEqual(
+        IReadOnlyList<TranslationFieldSettings> left,
+        IReadOnlyList<TranslationFieldSettings> right) =>
+        left.Count == right.Count && left
+            .Zip(right)
+            .All(pair =>
+                string.Equals(pair.First.Tag, pair.Second.Tag, StringComparison.Ordinal) &&
+                pair.First.Role == pair.Second.Role &&
+                pair.First.PairId == pair.Second.PairId &&
+                pair.First.PairMode == pair.Second.PairMode &&
+                string.Equals(
+                    pair.First.SourceFieldTag,
+                    pair.Second.SourceFieldTag,
+                    StringComparison.Ordinal));
+
+    private static Guid CreateStablePairId(string sourceTag, string targetTag)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{sourceTag}\n{targetTag}"));
+        return new Guid(hash.AsSpan(0, 16));
+    }
+
+    private static bool TryGetOriginalFieldName(string targetName, out string originalName)
+    {
+        var normalized = targetName.Trim();
+        string[] suffixes = [" — EN", " – EN", " - EN", " (EN)"];
+        foreach (var suffix in suffixes)
+        {
+            if (!normalized.EndsWith(suffix, StringComparison.CurrentCultureIgnoreCase))
+            {
+                continue;
+            }
+
+            originalName = normalized[..^suffix.Length].Trim();
+            return originalName.Length > 0;
+        }
+
+        originalName = string.Empty;
+        return false;
+    }
+
     private sealed class TemplatePackageManifest
     {
         public int FormatVersion { get; set; }
 
         public string Name { get; set; } = string.Empty;
 
+        public bool HasTranslation { get; set; }
+
         public List<string> FieldOrder { get; set; } = [];
+
+        public List<TranslationFieldSettings> TranslationFields { get; set; } = [];
     }
 
     private sealed class PackageArchive(
