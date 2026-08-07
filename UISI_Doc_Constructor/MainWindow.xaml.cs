@@ -738,7 +738,8 @@ public partial class MainWindow : Window
         var fileDialog = new OpenFileDialog
         {
             Title = "Откройте пакет перевода",
-            Filter = "Перевод UISI (*.uisi-translation)|*.uisi-translation",
+            Filter = TranslationPackageService.PackageOpenDialogFilter,
+            DefaultExt = TranslationPackageService.PackageExtension,
             CheckFileExists = true,
             Multiselect = false
         };

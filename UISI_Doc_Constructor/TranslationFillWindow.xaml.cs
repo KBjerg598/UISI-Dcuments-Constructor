@@ -45,7 +45,7 @@ public partial class TranslationFillWindow : Window
         var dialog = new SaveFileDialog
         {
             Title = "Сохраните заполненный пакет перевода",
-            Filter = "Перевод UISI (*.uisi-translation)|*.uisi-translation",
+            Filter = TranslationPackageService.PackageSaveDialogFilter,
             DefaultExt = TranslationPackageService.PackageExtension,
             AddExtension = true,
             OverwritePrompt = true,

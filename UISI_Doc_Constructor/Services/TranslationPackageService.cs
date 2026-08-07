@@ -9,6 +9,10 @@ namespace UISI_Doc_Constructor.Services;
 public sealed class TranslationPackageService
 {
     public const string PackageExtension = ".uisi-translation";
+    public const string PackageSaveDialogFilter =
+        "Перевод UISI (*.uisi-translation)|*.uisi-translation";
+    public const string PackageOpenDialogFilter =
+        "Пакеты перевода UISI (*.uisi-translation;*.zip)|*.uisi-translation;*.zip|Все файлы (*.*)|*.*";
 
     private const int CurrentFormatVersion = 1;
     private const long MaximumManifestSize = 1024 * 1024;
