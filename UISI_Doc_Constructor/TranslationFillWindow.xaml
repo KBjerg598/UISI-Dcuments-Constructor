@@ -1,6 +1,7 @@
 <Window x:Class="UISI_Doc_Constructor.TranslationFillWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:UISI_Doc_Constructor"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="Заполнение перевода"
         Style="{StaticResource AppWindowStyle}"
@@ -142,11 +143,22 @@
                                                         MinHeight="58"
                                                         Background="#F0FAF7"
                                                         CornerRadius="9">
-                                                    <TextBox AutomationProperties.HelpText="Выделите текст мышью и нажмите Ctrl+C"
-                                                             Style="{StaticResource SelectableSourceTextBoxStyle}"
-                                                             Text="{Binding SourceValue, Mode=OneWay, TargetNullValue=—, FallbackValue=—}"
-                                                             ToolTip="Текст можно выделить и скопировать через Ctrl+C"
-                                                             VerticalAlignment="Center" />
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox AutomationProperties.HelpText="Выделите текст мышью и нажмите Ctrl+C"
+                                                                 Style="{StaticResource SelectableSourceTextBoxStyle}"
+                                                                 Text="{Binding SourceValue, Mode=OneWay, TargetNullValue=—, FallbackValue=—}"
+                                                                 ToolTip="Текст можно выделить и скопировать через Ctrl+C"
+                                                                 VerticalAlignment="Center" />
+                                                        <local:FieldCopyButton Grid.Column="1"
+                                                                               Margin="8,0,0,0"
+                                                                               VerticalAlignment="Center"
+                                                                               FieldName="{Binding SourceDisplayName, Mode=OneWay}"
+                                                                               Text="{Binding SourceValue, Mode=OneWay}" />
+                                                    </Grid>
                                                 </Border>
                                             </StackPanel>
                                             <materialDesign:PackIcon Grid.Column="1"
@@ -161,17 +173,28 @@
                                                            FontWeight="SemiBold"
                                                            Foreground="#6559E8"
                                                            Text="АНГЛИЙСКИЙ ПЕРЕВОД" />
-                                                <TextBox MinHeight="88"
-                                                         Margin="0,8,0,0"
-                                                         Padding="11,8"
-                                                         AcceptsReturn="True"
-                                                         MaxLength="12000"
-                                                         TextWrapping="Wrap"
-                                                         VerticalScrollBarVisibility="Auto"
-                                                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                                         materialDesign:HintAssist.Hint="{Binding DisplayName}"
-                                                         materialDesign:TextFieldAssist.HasClearButton="True"
-                                                         Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
+                                                <Grid Margin="0,8,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox MinHeight="88"
+                                                             Padding="11,8"
+                                                             AcceptsReturn="True"
+                                                             MaxLength="12000"
+                                                             TextWrapping="Wrap"
+                                                             VerticalScrollBarVisibility="Auto"
+                                                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                                             materialDesign:HintAssist.Hint="{Binding DisplayName}"
+                                                             materialDesign:TextFieldAssist.HasClearButton="True"
+                                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
+                                                    <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                        <local:FieldCopyButton FieldName="{Binding DisplayName, Mode=OneWay}"
+                                                                               Text="{Binding Value, Mode=OneWay}" />
+                                                        <local:FieldOcrButton FieldName="{Binding DisplayName}"
+                                                                              Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                                    </StackPanel>
+                                                </Grid>
                                             </StackPanel>
                                         </Grid>
                                     </materialDesign:Card>

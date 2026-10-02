@@ -121,6 +121,7 @@ public sealed class TemplateStorageService
                 packageStream.CopyTo(destinationStream);
             }
 
+            new OpenXmlDocumentService().RepairTemplateFields(destinationPath, createBackup: false);
             ValidateDocxContents(destinationPath);
             _templates.Add(template);
             SaveCatalog();

@@ -76,6 +76,10 @@ public sealed class WordTemplateEditorService : IDisposable
 
         CloseDocument(saveChanges: true);
 
+        // Repair the app's stored copy before Word encounters legacy nested plain-text
+        // fields. Keep a backup; never rewrite a document that is already open in Word.
+        new OpenXmlDocumentService().RepairTemplateFields(fullPath);
+
         try
         {
             _application = new Word.Application
@@ -156,18 +160,14 @@ public sealed class WordTemplateEditorService : IDisposable
                     "Пока поле можно создать только внутри одного абзаца и одной ячейки таблицы.");
             }
 
-            if (range.ContentControls.Count > 0)
-            {
-                throw new InvalidOperationException(
-                    "Выделенный текст уже находится внутри поля шаблона.");
-            }
+            EnsureSelectionOutsideContentControls(range);
 
             var tag = string.IsNullOrWhiteSpace(existingTag)
                 ? $"{FieldTagPrefix}{Guid.NewGuid():D}"
                 : existingTag;
 
             contentControl = _document.ContentControls.Add(
-                Word.WdContentControlType.wdContentControlText,
+                Word.WdContentControlType.wdContentControlRichText,
                 range);
 
             contentControl.Title = displayName.Trim();
@@ -205,6 +205,74 @@ public sealed class WordTemplateEditorService : IDisposable
             ReleaseComObject(selection);
         }
     }
+
+    private void EnsureSelectionOutsideContentControls(Word.Range range)
+    {
+        Word.ContentControls? containedControls = null;
+        Word.ContentControls? documentControls = null;
+        Word.ContentControl? parent = null;
+        try
+        {
+            parent = range.ParentContentControl;
+            containedControls = range.ContentControls;
+            if (parent is not null || containedControls.Count > 0) ThrowOverlappingField();
+
+            // Range.ContentControls counts contained controls, not every enclosing or
+            // partially overlapping control. Compare ranges only within the same story.
+            documentControls = _document!.ContentControls;
+            for (var index = 1; index <= documentControls.Count; index++)
+            {
+                Word.ContentControl? candidate = null;
+                Word.Range? candidateRange = null;
+                try
+                {
+                    candidate = documentControls[index];
+                    candidateRange = candidate.Range;
+                    if (range.InStory(candidateRange) && ContentControlSelectionGuard.Overlaps(
+                            range.Start, range.End, candidateRange.Start, candidateRange.End))
+                        ThrowOverlappingField();
+                }
+                finally
+                {
+                    ReleaseComObject(candidateRange);
+                    ReleaseComObject(candidate);
+                }
+            }
+
+            // Headers, footers and text frames have their own control collections.
+            // Endpoint parents catch partial overlaps not listed in Document.ContentControls.
+            CheckEndpoint(range, range.Start);
+            CheckEndpoint(range, range.End - 1);
+        }
+        finally
+        {
+            ReleaseComObject(parent);
+            ReleaseComObject(containedControls);
+            ReleaseComObject(documentControls);
+        }
+    }
+
+    private static void CheckEndpoint(Word.Range range, int position)
+    {
+        Word.Range? endpoint = null;
+        Word.ContentControl? parent = null;
+        try
+        {
+            endpoint = range.Duplicate;
+            endpoint.SetRange(position, position);
+            parent = endpoint.ParentContentControl;
+            if (parent is not null) ThrowOverlappingField();
+        }
+        finally
+        {
+            ReleaseComObject(parent);
+            ReleaseComObject(endpoint);
+        }
+    }
+
+    private static void ThrowOverlappingField() => throw new InvalidOperationException(
+        "Выделение находится внутри существующего поля или пересекает его. " +
+        "Выделите отдельный текст вне рамки поля. Для изменения существующего поля используйте список полей в программе.");
 
     public WordDocumentSaveResult SaveDocument()
     {

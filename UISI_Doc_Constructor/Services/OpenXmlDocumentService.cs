@@ -16,6 +16,7 @@ public sealed class OpenXmlDocumentService
 
         return EnumerateRoots(document)
             .SelectMany(root => root.Descendants<SdtElement>())
+            .Where(control => !HasSameTagAncestor(control))
             .Select(ReadField)
             .Where(field => field is not null)
             .Cast<TemplateField>()
@@ -30,6 +31,34 @@ public sealed class OpenXmlDocumentService
                 Occurrences = group.Count()
             })
             .ToList();
+    }
+
+    public int RepairTemplateFields(string documentPath, bool createBackup = true)
+    {
+        var fullPath = Path.GetFullPath(documentPath);
+        var temporaryPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.Copy(fullPath, temporaryPath, overwrite: false);
+            int changes;
+            using (var document = WordprocessingDocument.Open(temporaryPath, true))
+            {
+                var roots = EnumerateRoots(document).ToList();
+                foreach (var root in roots) ValidateFieldNesting(root);
+                changes = roots.Sum(NormalizeFields);
+                if (changes > 0) foreach (var root in roots) root.Save();
+            }
+            if (changes == 0) return 0;
+            if (createBackup)
+                File.Copy(fullPath, fullPath + $".fields-backup-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.bak",
+                    overwrite: false);
+            File.Move(temporaryPath, fullPath, overwrite: true);
+            return changes;
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 
     public int RenameField(string documentPath, string fieldTag, string displayName)
@@ -128,13 +157,35 @@ public sealed class OpenXmlDocumentService
         string destinationPath,
         IReadOnlyDictionary<string, string> values)
     {
-        File.Copy(templatePath, destinationPath, overwrite: true);
+        var fullTemplatePath = Path.GetFullPath(templatePath);
+        var fullDestinationPath = Path.GetFullPath(destinationPath);
+        if (string.Equals(fullTemplatePath, fullDestinationPath, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Сохраните готовый документ отдельно от шаблона.");
+        var temporaryPath = fullDestinationPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.Copy(fullTemplatePath, temporaryPath, overwrite: false);
+            var replacements = FillDocument(temporaryPath, values);
+            if (replacements > 0) File.Move(temporaryPath, fullDestinationPath, overwrite: true);
+            return replacements;
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
+    }
 
-        using var document = WordprocessingDocument.Open(destinationPath, true);
+    private static int FillDocument(string documentPath, IReadOnlyDictionary<string, string> values)
+    {
+        using var document = WordprocessingDocument.Open(documentPath, true);
         var replacementCount = 0;
 
-        foreach (var root in EnumerateRoots(document))
+        var roots = EnumerateRoots(document).ToList();
+        foreach (var root in roots) ValidateFieldNesting(root);
+
+        foreach (var root in roots)
         {
+            NormalizeFields(root);
             var controls = root
                 .Descendants<SdtElement>()
                 .Where(control =>
@@ -179,10 +230,56 @@ public sealed class OpenXmlDocumentService
 
         foreach (var child in content.ChildElements.ToList())
         {
-            parent.InsertBefore(child.CloneNode(true), control);
+            // Move, rather than clone: callers may still hold references to nested fields.
+            child.Remove();
+            parent.InsertBefore(child, control);
         }
 
         control.Remove();
+    }
+
+    private static bool HasSameTagAncestor(SdtElement control)
+    {
+        var tag = GetTag(control);
+        return tag is not null && control.Ancestors<SdtElement>()
+            .Any(ancestor => string.Equals(GetTag(ancestor), tag, StringComparison.Ordinal));
+    }
+
+    private static void ValidateFieldNesting(OpenXmlPartRootElement root)
+    {
+        foreach (var control in root.Descendants<SdtElement>())
+        {
+            var tag = GetTag(control);
+            if (tag is null) continue;
+            if (control.Ancestors<SdtElement>().Any(ancestor => GetTag(ancestor) is { } ancestorTag && ancestorTag != tag))
+                throw new InvalidDataException(
+                    $"Поле «{ReadField(control)!.DisplayName}» вложено в другое поле с отдельным идентификатором. " +
+                    "В Word уберите лишнюю рамку поля, сохранив текст, и создайте поля в непересекающихся местах. " +
+                    "Программа не изменяет такие поля автоматически, чтобы не потерять данные.");
+        }
+    }
+
+    private static int NormalizeFields(OpenXmlPartRootElement root)
+    {
+        var changes = 0;
+        var duplicates = root.Descendants<SdtElement>().Where(HasSameTagAncestor)
+            .OrderByDescending(control => control.Ancestors().Count()).ToList();
+        foreach (var duplicate in duplicates)
+        {
+            UnwrapContentControl(duplicate, "Вложенное поле имеет повреждённую структуру.");
+            changes++;
+        }
+        foreach (var control in root.Descendants<SdtElement>().Where(control => GetTag(control) is not null))
+        {
+            var properties = control.GetFirstChild<SdtProperties>();
+            var plainText = properties?.GetFirstChild<SdtContentText>();
+            if (plainText is null) continue;
+            // Plain-text SDTs prohibit nested controls and mixed run formatting.
+            // Rich text retains the existing runs, styling, identifiers and language links.
+            properties!.ReplaceChild(new SdtContentRichText(), plainText);
+            changes++;
+        }
+        return changes;
     }
 
     private static TemplateField? ReadField(SdtElement control)

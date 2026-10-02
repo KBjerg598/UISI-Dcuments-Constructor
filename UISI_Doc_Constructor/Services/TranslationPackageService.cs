@@ -201,6 +201,8 @@ public sealed class TranslationPackageService
                     "Рабочий документ внутри файла перевода повреждён.");
             }
 
+            // Validate the original checksum first; repair only the extracted working copy.
+            _documentService.RepairTemplateFields(workingDocumentPath, createBackup: false);
             ValidateWorkingDocument(manifest, workingDocumentPath);
         }
         catch

@@ -1,0 +1,27 @@
+Local OCR components shipped with UISI Document Constructor
+
+Tesseract .NET wrapper 5.2.0, Copyright 2012-2020 Charles Weld.
+https://github.com/charlesw/tesseract
+Tesseract native engine 5.x, https://github.com/tesseract-ocr/tesseract
+Both are licensed under the Apache License 2.0 (see Apache-2.0.txt).
+
+Language models: unmodified tessdata_fast 4.1.0 (eng, rus, ukr).
+https://github.com/tesseract-ocr/tessdata_fast/tree/4.1.0
+Apache License 2.0. SHA-256:
+eng 7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2
+rus e16e5e036cce1d9ec2b00063cf8b54472625b9e14d893a169e2b0dedeb4df225
+ukr d59e53e2bded32f4445f124b4b00240fcac7e8044c003ab822ccb94f0b3db59b
+
+Leptonica 1.82.0, Copyright Dan Bloomberg and contributors.
+https://github.com/DanBloomberg/leptonica/tree/1.82.0
+See Leptonica-License.txt for the BSD-style license.
+
+Microsoft Visual C++ runtime (x64), version 14.51.36260.0.
+Unmodified Microsoft-signed redistributable DLLs from Visual Studio Community's
+Common7/IDE directory. These components retain Microsoft's license, not Apache.
+https://aka.ms/vs/18/redistribution
+https://visualstudio.microsoft.com/license-terms/
+
+Screenshots and recognized text are processed only in memory, locally.
+No OCR service, API key, runtime download, or separately installed language pack
+is required. OCR is supported by the win-x64 distribution (including x64 emulation).
