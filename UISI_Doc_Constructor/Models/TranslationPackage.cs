@@ -49,6 +49,8 @@ public sealed class TranslationPackageField
 public sealed class TranslationFieldValueItem : INotifyPropertyChanged
 {
     private string _value = string.Empty;
+    private string _sourceValue = string.Empty;
+    private FieldValueItem? _source;
 
     public required string Tag { get; init; }
 
@@ -56,7 +58,45 @@ public sealed class TranslationFieldValueItem : INotifyPropertyChanged
 
     public string SourceDisplayName { get; init; } = string.Empty;
 
-    public string SourceValue { get; init; } = string.Empty;
+    public FieldValueItem? Source
+    {
+        get => _source;
+        init
+        {
+            _source = value;
+            if (_source is not null)
+            {
+                _source.PropertyChanged += (_, args) =>
+                {
+                    if (args.PropertyName == nameof(FieldValueItem.Value))
+                    {
+                        OnPropertyChanged(nameof(SourceValue));
+                    }
+                };
+            }
+        }
+    }
+
+    public bool CanEditSource { get; init; }
+
+    public bool IsSourceReadOnly => !CanEditSource;
+
+    public string SourceValue
+    {
+        get => _source?.Value ?? _sourceValue;
+        set
+        {
+            if (_source is not null)
+            {
+                _source.Value = value;
+            }
+            else if (!string.Equals(_sourceValue, value, StringComparison.Ordinal))
+            {
+                _sourceValue = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 
     public string Value
     {
@@ -87,7 +127,7 @@ public sealed class TranslationPackageSession : IDisposable
 
     public required string WorkingDocumentPath { get; init; }
 
-    public required TranslationPackageManifest Manifest { get; init; }
+    public required TranslationPackageManifest Manifest { get; set; }
 
     public void Dispose()
     {

@@ -155,7 +155,9 @@ public sealed class OpenXmlDocumentService
     public int GenerateDocument(
         string templatePath,
         string destinationPath,
-        IReadOnlyDictionary<string, string> values)
+        IReadOnlyDictionary<string, string> values,
+        IReadOnlySet<string>? retainedFieldTags = null,
+        bool flattenUnfilledFields = false)
     {
         var fullTemplatePath = Path.GetFullPath(templatePath);
         var fullDestinationPath = Path.GetFullPath(destinationPath);
@@ -165,7 +167,7 @@ public sealed class OpenXmlDocumentService
         try
         {
             File.Copy(fullTemplatePath, temporaryPath, overwrite: false);
-            var replacements = FillDocument(temporaryPath, values);
+            var replacements = FillDocument(temporaryPath, values, retainedFieldTags, flattenUnfilledFields);
             if (replacements > 0) File.Move(temporaryPath, fullDestinationPath, overwrite: true);
             return replacements;
         }
@@ -175,7 +177,8 @@ public sealed class OpenXmlDocumentService
         }
     }
 
-    private static int FillDocument(string documentPath, IReadOnlyDictionary<string, string> values)
+    private static int FillDocument(string documentPath, IReadOnlyDictionary<string, string> values,
+        IReadOnlySet<string>? retainedFieldTags, bool flattenUnfilledFields)
     {
         using var document = WordprocessingDocument.Open(documentPath, true);
         var replacementCount = 0;
@@ -202,10 +205,26 @@ public sealed class OpenXmlDocumentService
                 var value = values[tag];
 
                 ReplaceText(control, value);
-                UnwrapContentControl(
-                    control,
-                    "Одно из полей имеет повреждённую структуру и не может быть преобразовано в обычный текст.");
+                if (retainedFieldTags?.Contains(tag) != true)
+                    UnwrapContentControl(
+                        control,
+                        "Одно из полей имеет повреждённую структуру и не может быть преобразовано в обычный текст.");
                 replacementCount++;
+            }
+
+            if (flattenUnfilledFields)
+            {
+                // A standalone DOCX has no editable UISI fields, even for untranslated text.
+                // Move the existing contents unchanged; working translation packages opt out.
+                var remainingControls = root.Descendants<SdtElement>()
+                    .Where(control => GetTag(control) is { } tag && retainedFieldTags?.Contains(tag) != true)
+                    .OrderByDescending(control => control.Ancestors().Count())
+                    .ToList();
+                foreach (var control in remainingControls)
+                {
+                    UnwrapContentControl(control,
+                        "Не удалось убрать рамку поля из готового документа без изменения текста.");
+                }
             }
 
             root.Save();

@@ -38,6 +38,14 @@ public partial class TranslationFillWindow : Window
 
     public string TargetCountText { get; }
 
+    public string SourceEditingDescription => _session.Manifest.FormatVersion >= 2
+        ? "Украинский текст можно исправить слева. Правки сохранятся в пакете и итоговом DOCX; все рамки будут удалены."
+        : "В старом пакете украинский текст доступен только для копирования. Для его исправления создайте новый пакет из существующего шаблона.";
+
+    public string SourceEditingHelpText => _session.Manifest.FormatVersion >= 2
+        ? "Исправьте украинский оригинал или выделите текст и скопируйте его сочетанием Ctrl+C."
+        : "Выделите текст и скопируйте его сочетанием Ctrl+C. Для редактирования нужен новый пакет из существующего шаблона.";
+
     public string? ResultPath { get; private set; }
 
     private void SavePackage_Click(object sender, RoutedEventArgs e)
@@ -113,7 +121,7 @@ public partial class TranslationFillWindow : Window
             ResultPath = dialog.FileName;
             MessageBox.Show(
                 this,
-                $"Окончательный документ создан.\n\nЗаменено английских полей: {replacements}\n{packageMessage}",
+                $"Окончательный документ создан.\n\nЗаполнено вхождений полей: {replacements}\n{packageMessage}",
                 "Перевод завершён",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -121,18 +129,6 @@ public partial class TranslationFillWindow : Window
         }
         catch (Exception exception)
         {
-            if (File.Exists(dialog.FileName))
-            {
-                try
-                {
-                    File.Delete(dialog.FileName);
-                }
-                catch (IOException)
-                {
-                    // The original error is more useful than a cleanup failure.
-                }
-            }
-
             ShowError(exception.Message, "Не удалось создать документ");
         }
     }

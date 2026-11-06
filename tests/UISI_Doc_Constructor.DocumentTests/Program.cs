@@ -22,8 +22,11 @@ internal static class Program
         Directory.CreateDirectory(testRoot);
         TestSelectionRanges();
         TestLegacyFields(testRoot);
+        TestAuthorDocumentWithoutFrames(testRoot);
         TestAmbiguousFields(testRoot);
         TestLegacyTranslationPackage(testRoot);
+        EditableTranslationTests.Run(testRoot);
+        TranslationLayoutTests.Run(testRoot);
         var templateIndex = Array.IndexOf(args, "--template");
         if (templateIndex >= 0) TestExistingTemplate(args[templateIndex + 1], testRoot);
         Console.WriteLine("All document regression checks passed: duplicate nesting, formatting, identifiers, backups, headers/footers, partial translation, atomic output, and overlapping selection ranges.");
@@ -108,6 +111,55 @@ internal static class Program
         Assert(!Directory.GetFiles(root, "*.tmp").Any(), "temporary files are cleaned up");
     }
 
+    private static void TestAuthorDocumentWithoutFrames(string root)
+    {
+        const string sameValueTag = "uisi-field:same-value-number";
+        const string unrelatedTag = "external-form:keep";
+        var template = Path.Combine(root, "author-export-template.docx");
+        File.Copy(Path.Combine(root, "legacy.docx"), template);
+        using (var document = WordprocessingDocument.Open(template, true))
+        {
+            var body = document.MainDocumentPart!.Document!.Body!;
+            var section = body.GetFirstChild<SectionProperties>()!;
+            body.InsertBefore(new Table(new TableProperties(), new TableGrid(new GridColumn(), new GridColumn()),
+                new TableRow(
+                    new TableCell(new Paragraph(Field(SourceTag, 30, new Run(new Text("Український текст"))))),
+                    new TableCell(new Paragraph(Field(TargetTag, 31,
+                        new Run(new RunProperties(new Italic()), new Text("Existing English value"))))))), section);
+            body.InsertBefore(new Paragraph(Field(sameValueTag, 32, new Run(new Text("Contract number")))), section);
+            body.InsertBefore(new Paragraph(Field(unrelatedTag, 33, new Run(new Text("Independent Word form")))), section);
+        }
+        var originalHash = Hash(template);
+        var output = Path.Combine(root, "author-export-without-frames.docx");
+        var replacements = Service.GenerateDocument(template, output, new Dictionary<string, string>
+        {
+            [SourceTag] = "Заповнено автором",
+            [sameValueTag] = "26-156"
+        }, flattenUnfilledFields: true);
+        Assert(replacements == 4, "author export counts filled occurrences, not removed English frames");
+        using (var document = WordprocessingDocument.Open(output, false))
+        {
+            var roots = Roots(document).ToList();
+            var controls = roots.SelectMany(part => part.Descendants<SdtElement>()).ToList();
+            Assert(controls.All(control => TagOf(control)?.StartsWith("uisi-field:", StringComparison.Ordinal) != true),
+                "ordinary DOCX export removes both Ukrainian and unfilled English field frames");
+            Assert(controls.Count == 1 && TagOf(controls[0]) == unrelatedTag, "unrelated Word forms are preserved");
+            var main = document.MainDocumentPart!;
+            Assert(main.Document!.InnerText.Contains("English placeholder tail") &&
+                main.Document.InnerText.Contains("Another occurrence") &&
+                main.Document.InnerText.Contains("Existing English value"), "English text remains unchanged when removing its frames");
+            Assert(main.Document.InnerText.Contains("26-156"), "same-value English fields keep their filled value");
+            Assert(main.Document.Descendants<Italic>().Count() == 2, "English character formatting is preserved");
+            Assert(main.HeaderParts.Single().Header!.InnerText == "Header", "English header text remains after frame removal");
+            Assert(main.FooterParts.Single().Footer!.InnerText == "Заповнено автором", "Ukrainian footer is filled without a frame");
+            Assert(!new OpenXmlValidator().Validate(document).Any(), "ordinary bilingual DOCX export is valid Open XML");
+        }
+        Assert(Hash(template) == originalHash, "ordinary export leaves the template and its field anchors untouched");
+        Assert(Service.ReadFields(template).Single(field => field.Tag == TargetTag).Occurrences == 4,
+            "all English template fields remain available for future translation packages");
+        Console.WriteLine("Ordinary DOCX export: both languages have no UISI frames; English text, formatting, tables, headers/footers and the template are preserved.");
+    }
+
     private static void TestAmbiguousFields(string root)
     {
         var source = Path.Combine(root, "ambiguous.docx");
@@ -181,9 +233,14 @@ internal static class Program
             manifest = JsonSerializer.Deserialize<TranslationPackageManifest>(stream)!;
             archive.GetEntry("working.docx")!.ExtractToFile(workingPath);
         }
+        // Old packages flattened their Ukrainian fields before being handed to the translator.
+        var flattenedPath = Path.Combine(root, "legacy-flattened.docx");
+        Service.GenerateDocument(workingPath, flattenedPath, new Dictionary<string, string> { [SourceTag] = "Автор" });
+        File.Move(flattenedPath, workingPath, overwrite: true);
+        manifest.FormatVersion = 1;
         using (var document = WordprocessingDocument.Open(workingPath, true))
         {
-            var control = document.MainDocumentPart!.Document!.Descendants<SdtRun>().First();
+            var control = document.MainDocumentPart!.Document!.Descendants<SdtRun>().First(control => TagOf(control) == TargetTag);
             var properties = control.GetFirstChild<SdtProperties>()!;
             properties.ReplaceChild(new SdtContentText(), properties.GetFirstChild<SdtContentRichText>()!);
             var duplicate = (SdtRun)control.CloneNode(true);
@@ -204,11 +261,21 @@ internal static class Program
             Assert(Roots(document).SelectMany(part => part.Descendants<SdtElement>()).All(control =>
                 !control.Descendants<SdtElement>().Any()), "legacy translation package repaired after checksum validation");
         var values = packageService.CreateTargetItems(session);
+        Assert(values.All(value => value.IsSourceReadOnly && !value.CanEditSource), "old package sources remain read-only");
         foreach (var field in values) field.Value = "Translation";
         var saved = Path.Combine(root, "saved.uisi-translation");
         packageService.SavePackage(session, values, saved);
         using var reopened = packageService.OpenPackage(saved);
         packageService.GenerateFinalDocument(reopened, packageService.CreateTargetItems(reopened), Path.Combine(root, "translated.docx"));
+        var legacyFinalHash = Hash(Path.Combine(root, "translated.docx"));
+        values[0].SourceValue = "Unsupported correction";
+        try
+        {
+            packageService.GenerateFinalDocument(session, values, Path.Combine(root, "translated.docx"));
+            throw new Exception("Old package source correction was silently discarded.");
+        }
+        catch (InvalidOperationException exception) when (exception.Message.Contains("старом пакете")) { }
+        Assert(Hash(Path.Combine(root, "translated.docx")) == legacyFinalHash, "unsupported correction preserves the existing final DOCX");
         Assert(Hash(legacyPackage) == packageHash, "original translation package unchanged");
     }
 

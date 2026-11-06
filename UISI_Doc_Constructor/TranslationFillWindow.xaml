@@ -20,7 +20,7 @@
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Foreground" Value="#3E655A" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
-            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="IsReadOnly" Value="{Binding IsSourceReadOnly}" />
             <Setter Property="IsReadOnlyCaretVisible" Value="True" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="SelectionBrush" Value="#B7E9DC" />
@@ -102,7 +102,7 @@
                         <TextBlock Grid.Column="1"
                                    FontSize="11"
                                    Foreground="#5F5A82"
-                                   Text="Украинский текст доступен только как подсказка. В окончательном DOCX все рамки будут удалены."
+                                   Text="{Binding SourceEditingDescription}"
                                    TextWrapping="Wrap" />
                     </Grid>
                 </Border>
@@ -137,6 +137,7 @@
                                                 <TextBlock Margin="0,4,0,0"
                                                            FontSize="12"
                                                            FontWeight="SemiBold"
+                                                           TextWrapping="Wrap"
                                                            Text="{Binding SourceDisplayName}" />
                                                 <Border Margin="0,8,0,0"
                                                         Padding="11,9"
@@ -148,10 +149,12 @@
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
-                                                        <TextBox AutomationProperties.HelpText="Выделите текст мышью и нажмите Ctrl+C"
+                                                        <TextBox MaxLength="12000" MinHeight="58" MaxHeight="260"
+                                                                 AutomationProperties.Name="{Binding SourceDisplayName}"
+                                                                 AutomationProperties.HelpText="{Binding SourceEditingHelpText, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                  Style="{StaticResource SelectableSourceTextBoxStyle}"
-                                                                 Text="{Binding SourceValue, Mode=OneWay, TargetNullValue=—, FallbackValue=—}"
-                                                                 ToolTip="Текст можно выделить и скопировать через Ctrl+C"
+                                                                 Text="{Binding SourceValue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 ToolTip="{Binding SourceEditingHelpText, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                  VerticalAlignment="Center" />
                                                         <local:FieldCopyButton Grid.Column="1"
                                                                                Margin="8,0,0,0"
@@ -222,12 +225,12 @@
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="Cancel_Click"
                                 Content="Закрыть" />
-                        <Button Width="176"
+                        <Button MinWidth="176"
                                 Margin="0,0,10,0"
                                 Style="{StaticResource SecondaryButtonStyle}"
                                 Click="SavePackage_Click"
                                 Content="Сохранить пакет" />
-                        <Button Width="212"
+                        <Button x:Name="FinalDocxButton" MinWidth="212"
                                 Style="{StaticResource PrimaryButtonStyle}"
                                 Click="GenerateFinal_Click"
                                 Content="Создать финальный DOCX" />

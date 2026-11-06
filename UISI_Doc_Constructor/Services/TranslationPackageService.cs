@@ -14,7 +14,7 @@ public sealed class TranslationPackageService
     public const string PackageOpenDialogFilter =
         "Пакеты перевода UISI (*.uisi-translation;*.zip)|*.uisi-translation;*.zip|Все файлы (*.*)|*.*";
 
-    private const int CurrentFormatVersion = 1;
+    private const int CurrentFormatVersion = 2;
     private const long MaximumManifestSize = 1024 * 1024;
     private const long MaximumDocumentSize = 250L * 1024 * 1024;
 
@@ -94,24 +94,13 @@ public sealed class TranslationPackageService
             var replacements = _documentService.GenerateDocument(
                 templatePath,
                 workingDocumentPath,
-                sourceValues);
+                sourceValues,
+                settings.Where(item => item.Role is TranslationFieldRole.Source or TranslationFieldRole.Target)
+                    .Select(item => item.Tag).ToHashSet(StringComparer.Ordinal));
             if (replacements == 0)
             {
                 throw new InvalidDataException(
                     "В шаблоне не найдено ни одного украинского или общего поля.");
-            }
-
-            var targetTags = translationTargets
-                .Select(item => item.Tag)
-                .ToHashSet(StringComparer.Ordinal);
-            var remainingFields = _documentService.ReadFields(workingDocumentPath);
-            if (remainingFields.Count == 0 ||
-                remainingFields.Any(field => !targetTags.Contains(field.Tag)) ||
-                targetTags.Any(tag => remainingFields.All(field =>
-                    !string.Equals(field.Tag, tag, StringComparison.Ordinal))))
-            {
-                throw new InvalidDataException(
-                    "Не удалось сохранить английские поля в рабочем документе. Обновите поля шаблона и повторите попытку.");
             }
 
             var now = DateTime.UtcNow;
@@ -147,6 +136,7 @@ public sealed class TranslationPackageService
                 }).ToList()
             };
 
+            ValidateWorkingDocument(manifest, workingDocumentPath);
             WritePackage(manifest, workingDocumentPath, destinationPath);
         }
         finally
@@ -223,9 +213,15 @@ public sealed class TranslationPackageService
     public IReadOnlyList<TranslationFieldValueItem> CreateTargetItems(
         TranslationPackageSession session)
     {
-        var fieldsByTag = session.Manifest.Fields.ToDictionary(
-            field => field.Tag,
-            StringComparer.Ordinal);
+        // A source can be paired with multiple translations. All rows share one editable value.
+        var sourcesByTag = session.Manifest.Fields
+            .Where(field => field.Role == TranslationFieldRole.Source)
+            .ToDictionary(field => field.Tag, field => new FieldValueItem
+            {
+                Tag = field.Tag,
+                DisplayName = field.DisplayName,
+                Value = field.Value
+            }, StringComparer.Ordinal);
 
         return session.Manifest.Fields
             .Where(field =>
@@ -234,7 +230,7 @@ public sealed class TranslationPackageService
             .Select(field =>
             {
                 var source = field.SourceFieldTag is not null &&
-                             fieldsByTag.TryGetValue(field.SourceFieldTag, out var pairedSource)
+                             sourcesByTag.TryGetValue(field.SourceFieldTag, out var pairedSource)
                     ? pairedSource
                     : null;
                 return new TranslationFieldValueItem
@@ -242,7 +238,8 @@ public sealed class TranslationPackageService
                     Tag = field.Tag,
                     DisplayName = field.DisplayName,
                     SourceDisplayName = source?.DisplayName ?? "Без связанного украинского поля",
-                    SourceValue = source?.Value ?? string.Empty,
+                    Source = source,
+                    CanEditSource = session.Manifest.FormatVersion >= 2 && source is not null,
                     Value = field.Value
                 };
             })
@@ -254,12 +251,36 @@ public sealed class TranslationPackageService
         IEnumerable<TranslationFieldValueItem> targetValues,
         string destinationPath)
     {
-        ApplyTargetValues(session.Manifest, targetValues);
-        session.Manifest.Revision++;
-        session.Manifest.UpdatedAtUtc = DateTime.UtcNow;
-        session.Manifest.WorkingDocumentSha256 = CalculateSha256(
-            session.WorkingDocumentPath);
-        WritePackage(session.Manifest, session.WorkingDocumentPath, destinationPath);
+        var manifest = BuildUpdatedManifest(session, targetValues);
+        manifest.Revision++;
+        manifest.UpdatedAtUtc = DateTime.UtcNow;
+        var temporaryDocument = Path.Combine(session.WorkingDirectory, $"{Guid.NewGuid():N}.docx");
+        try
+        {
+            var workingPath = session.WorkingDocumentPath;
+            if (manifest.FormatVersion >= 2)
+            {
+                ValidateWorkingDocument(manifest, workingPath);
+                _documentService.GenerateDocument(workingPath, temporaryDocument,
+                    GetSourceValues(manifest), GetWorkingFieldTags(manifest));
+                workingPath = temporaryDocument;
+            }
+
+            manifest.WorkingDocumentSha256 = CalculateSha256(workingPath);
+            WritePackage(manifest, workingPath, destinationPath);
+            if (File.Exists(temporaryDocument))
+            {
+                File.Move(temporaryDocument, session.WorkingDocumentPath, overwrite: true);
+            }
+            session.Manifest = manifest;
+        }
+        finally
+        {
+            if (File.Exists(temporaryDocument))
+            {
+                File.Delete(temporaryDocument);
+            }
+        }
     }
 
     public int GenerateFinalDocument(
@@ -267,7 +288,9 @@ public sealed class TranslationPackageService
         IEnumerable<TranslationFieldValueItem> targetValues,
         string destinationPath)
     {
-        var values = targetValues.ToList();
+        var manifest = BuildUpdatedManifest(session, targetValues);
+        var values = manifest.Fields.Where(field =>
+            field.Role == TranslationFieldRole.Target && field.PairMode == TranslationPairMode.Translation).ToList();
         var emptyField = values.FirstOrDefault(field => string.IsNullOrWhiteSpace(field.Value));
         if (emptyField is not null)
         {
@@ -275,24 +298,48 @@ public sealed class TranslationPackageService
                 $"Заполните английское поле «{emptyField.DisplayName}».");
         }
 
-        var replacements = _documentService.GenerateDocument(
-            session.WorkingDocumentPath,
-            destinationPath,
-            values.ToDictionary(field => field.Tag, field => field.Value, StringComparer.Ordinal));
-        if (replacements == 0)
+        var valuesByTag = values.ToDictionary(field => field.Tag, field => field.Value, StringComparer.Ordinal);
+        if (manifest.FormatVersion >= 2)
         {
-            throw new InvalidDataException(
-                "В рабочем документе не найдено ни одного английского поля.");
+            emptyField = manifest.Fields.FirstOrDefault(field =>
+                field.Role == TranslationFieldRole.Source && string.IsNullOrWhiteSpace(field.Value));
+            if (emptyField is not null)
+            {
+                throw new InvalidOperationException($"Заполните украинское поле «{emptyField.DisplayName}».");
+            }
+            foreach (var value in GetSourceValues(manifest))
+            {
+                valuesByTag[value.Key] = value.Value;
+            }
         }
 
-        if (_documentService.ReadFields(destinationPath).Count > 0)
+        var fullDestinationPath = Path.GetFullPath(destinationPath);
+        if (string.Equals(fullDestinationPath, Path.GetFullPath(session.WorkingDocumentPath), StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fullDestinationPath, Path.GetFullPath(session.SourcePath), StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidDataException(
-                "В итоговом документе остались незаполненные поля. Проверьте пакет перевода.");
+            throw new InvalidOperationException("Сохраните итоговый документ в отдельный файл.");
         }
-
-        ApplyTargetValues(session.Manifest, values);
-        return replacements;
+        var directory = Path.GetDirectoryName(fullDestinationPath)!;
+        var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(fullDestinationPath)}.{Guid.NewGuid():N}.docx");
+        try
+        {
+            ValidateWorkingDocument(manifest, session.WorkingDocumentPath);
+            var replacements = _documentService.GenerateDocument(session.WorkingDocumentPath, temporaryPath, valuesByTag);
+            if (replacements == 0 || _documentService.ReadFields(temporaryPath).Count > 0)
+            {
+                throw new InvalidDataException("В итоговом документе остались незаполненные поля. Проверьте пакет перевода.");
+            }
+            File.Move(temporaryPath, fullDestinationPath, overwrite: true);
+            session.Manifest = manifest;
+            return replacements;
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+        }
     }
 
     private static IReadOnlyList<TranslationFieldSettings> ValidateTemplateConfiguration(
@@ -401,12 +448,7 @@ public sealed class TranslationPackageService
         TranslationPackageManifest manifest,
         string workingDocumentPath)
     {
-        var targetTags = manifest.Fields
-            .Where(field =>
-                field.Role == TranslationFieldRole.Target &&
-                field.PairMode == TranslationPairMode.Translation)
-            .Select(field => field.Tag)
-            .ToHashSet(StringComparer.Ordinal);
+        var targetTags = GetWorkingFieldTags(manifest);
         var remainingFields = _documentService.ReadFields(workingDocumentPath);
 
         if (remainingFields.Count == 0 ||
@@ -415,13 +457,13 @@ public sealed class TranslationPackageService
                 !string.Equals(field.Tag, tag, StringComparison.Ordinal))))
         {
             throw new InvalidDataException(
-                "Рабочий документ не соответствует английским полям файла перевода.");
+                "Рабочий документ не соответствует полям файла перевода.");
         }
     }
 
     private static void ValidateManifest(TranslationPackageManifest manifest)
     {
-        if (manifest.FormatVersion != CurrentFormatVersion ||
+        if (manifest.FormatVersion is < 1 or > CurrentFormatVersion ||
             manifest.PackageId == Guid.Empty ||
             string.IsNullOrWhiteSpace(manifest.TemplateName) ||
             manifest.Fields.Count is 0 or > 5000 ||
@@ -460,24 +502,74 @@ public sealed class TranslationPackageService
         }
     }
 
-    private static void ApplyTargetValues(
-        TranslationPackageManifest manifest,
+    private TranslationPackageManifest BuildUpdatedManifest(
+        TranslationPackageSession session,
         IEnumerable<TranslationFieldValueItem> targetValues)
     {
-        var valuesByTag = targetValues.ToDictionary(
-            field => field.Tag,
-            field => field.Value,
-            StringComparer.Ordinal);
-        foreach (var target in manifest.Fields.Where(field =>
-                     field.Role == TranslationFieldRole.Target &&
-                     field.PairMode == TranslationPairMode.Translation))
+        // Failed saves must not mutate the session or lose the previous revision.
+        var manifest = JsonSerializer.Deserialize<TranslationPackageManifest>(
+            JsonSerializer.Serialize(session.Manifest, _jsonOptions), _jsonOptions)!;
+        var values = targetValues.ToList();
+        var targets = manifest.Fields.Where(field =>
+            field.Role == TranslationFieldRole.Target && field.PairMode == TranslationPairMode.Translation)
+            .ToDictionary(field => field.Tag, StringComparer.Ordinal);
+        if (values.Count != targets.Count || values.Select(value => value.Tag).Distinct(StringComparer.Ordinal).Count() != values.Count ||
+            values.Any(value => !targets.ContainsKey(value.Tag)))
         {
-            if (valuesByTag.TryGetValue(target.Tag, out var value))
-            {
-                target.Value = value;
-            }
+            throw new InvalidDataException("Список английских полей не соответствует пакету перевода.");
         }
+        var sources = manifest.Fields.Where(field => field.Role == TranslationFieldRole.Source)
+            .ToDictionary(field => field.Tag, StringComparer.Ordinal);
+        var corrections = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var value in values)
+        {
+            var target = targets[value.Tag];
+            target.Value = value.Value;
+            if (target.SourceFieldTag is null)
+            {
+                continue;
+            }
+            if (value.Source is not null && !string.Equals(value.Source.Tag, target.SourceFieldTag, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Украинский текст связан с другим полем перевода.");
+            }
+            var source = sources[target.SourceFieldTag];
+            if (manifest.FormatVersion < 2 && !string.Equals(source.Value, value.SourceValue, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("В старом пакете украинский текст недоступен для изменения. Создайте новый пакет из существующего шаблона.");
+            }
+            if (corrections.TryGetValue(source.Tag, out var previous) && !string.Equals(previous, value.SourceValue, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Для одного украинского поля указаны разные исправления.");
+            }
+            corrections[source.Tag] = value.SourceValue;
+        }
+        foreach (var correction in corrections)
+        {
+            sources[correction.Key].Value = correction.Value;
+        }
+        foreach (var mirroredTarget in manifest.Fields.Where(field =>
+                     field.Role == TranslationFieldRole.Target && field.PairMode == TranslationPairMode.SameValue))
+        {
+            if (mirroredTarget.SourceFieldTag is null || !sources.TryGetValue(mirroredTarget.SourceFieldTag, out var source))
+            {
+                throw new InvalidDataException("Связь одинаковых значений повреждена.");
+            }
+            mirroredTarget.Value = source.Value;
+        }
+        return manifest;
     }
+
+    private static HashSet<string> GetWorkingFieldTags(TranslationPackageManifest manifest) =>
+        manifest.Fields.Where(field => manifest.FormatVersion >= 2
+                ? field.Role is TranslationFieldRole.Source or TranslationFieldRole.Target
+                : field.Role == TranslationFieldRole.Target && field.PairMode == TranslationPairMode.Translation)
+            .Select(field => field.Tag).ToHashSet(StringComparer.Ordinal);
+
+    private static Dictionary<string, string> GetSourceValues(TranslationPackageManifest manifest) =>
+        manifest.Fields.Where(field => field.Role == TranslationFieldRole.Source ||
+                field.Role == TranslationFieldRole.Target && field.PairMode == TranslationPairMode.SameValue)
+            .ToDictionary(field => field.Tag, field => field.Value, StringComparer.Ordinal);
 
     private static void ValidateEntrySizes(
         ZipArchiveEntry manifestEntry,

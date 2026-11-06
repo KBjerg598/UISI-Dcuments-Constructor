@@ -8,5 +8,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../UISI_Doc_Constructor/UISI_Doc_Constructor.csproj" />
+    <Content Include="../../UISI_Doc_Constructor/App.xaml" Link="ApplicationStyles.xaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

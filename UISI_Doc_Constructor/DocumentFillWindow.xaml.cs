@@ -117,7 +117,8 @@ public partial class DocumentFillWindow : Window
             var replacements = _documentService.GenerateDocument(
                 _templatePath,
                 dialog.FileName,
-                values);
+                values,
+                flattenUnfilledFields: true);
 
             if (replacements == 0)
             {

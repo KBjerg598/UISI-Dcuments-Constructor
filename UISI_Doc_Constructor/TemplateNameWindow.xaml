@@ -109,7 +109,7 @@
                             Style="{StaticResource QuietButtonStyle}"
                             Click="Cancel_Click"
                             Content="Отмена" />
-                    <Button Width="142"
+                    <Button x:Name="ConfirmButton" MinWidth="160"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Click="Save_Click">
                         <StackPanel Orientation="Horizontal">
